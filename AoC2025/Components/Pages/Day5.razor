@@ -2,6 +2,111 @@
 
 <PageTitle>Day 5</PageTitle>
 
-<h1>Day 5</h1>
+<InputDisplay InputFileLoader="InputFileLoader" Day="5" @ref="InputDisplay" />
 
-<p>Welcome to Day 5 of Advent of Code!</p>
+<div class="d-flex flex-row gap-4 mb-4">
+    <button class="btn btn-primary" @onclick="SolvePart1">Solve Part 1</button>
+    <button class="btn btn-primary" @onclick="SolvePart2">Solve Part 2</button>
+
+    <p>Part 1: @Part1Result</p>
+    <p>Part 2: @Part2Result</p>
+</div>
+
+@if (InputLines.Any())
+{
+    <div class="d-flex flex-row gap-4 mb-4">
+        <div class="d-flex flex-column" style="width: 400px;">
+            <table class="table table-sm table-bordered">
+                <tbody>
+                @foreach (var range in Ranges)
+                {
+                    <tr>
+                        <td>@range.Start</td>
+                        <td>@range.End</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+
+        <table class="table table-sm table-bordered">
+            <tbody>
+            @foreach (var id in AvailableIds)
+            {
+                <tr>
+                    <td>@id</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    [CascadingParameter]
+    public Services.InputFileLoader InputFileLoader { get; set; } = default!;
+
+    private List<string> InputLines { get; set; } = new();
+
+    private InputDisplay InputDisplay { get; set; }
+
+    private long Part1Result { get; set; } = 0;
+    private long Part2Result { get; set; } = 0;
+
+    private List<(long Start, long End)> Ranges { get; set; } = new();
+    private HashSet<long> AvailableIds { get; set; } = new();
+
+    protected override Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            InputLines = InputDisplay.GetInputLines();
+
+            foreach (var line in InputLines)
+            {
+                if (line.Contains('-'))
+                {
+                    var start = long.Parse(line.Split('-')[0].Trim());
+                    var end = long.Parse(line.Split('-')[1].Trim());
+                    Ranges.Add((start, end));
+                    continue;
+                }
+
+                if (!string.IsNullOrWhiteSpace(line) && long.TryParse(line, out var id))
+                {
+                    AvailableIds.Add(id);
+                }
+            }
+
+            Ranges = Ranges.OrderBy(s => s.Start).ToList();
+
+            StateHasChanged();
+        }
+
+        return base.OnAfterRenderAsync(firstRender);
+    }
+
+    private void SolvePart1()
+    {
+        Part1Result = 0;
+        foreach (var id in AvailableIds)
+        {
+            if (Ranges.Any(x => x.Start <= id && id <= x.End))
+            {
+                Part1Result++;
+            }
+        }
+    }
+
+    private void SolvePart2()
+    {
+        Part2Result = 0;
+
+        // solve the overlapping ranges first
+        foreach (var range in Ranges)
+        {
+            Part2Result += range.End - range.Start + 1;
+        }
+    }
+}
+

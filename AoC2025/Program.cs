@@ -1,10 +1,12 @@
 using AoC2025.Components;
+using AoC2025.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+builder.Services.AddScoped<InputFileLoader>();
 
 var app = builder.Build();
 

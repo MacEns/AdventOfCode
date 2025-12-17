@@ -2,6 +2,202 @@
 
 <PageTitle>Day 3</PageTitle>
 
-<h1>Day 3</h1>
+<InputDisplay InputFileLoader="InputFileLoader" Day="3" @ref="InputDisplay" />
 
-<p>Welcome to Day 3 of Advent of Code!</p>
+<button class="btn btn-primary" @onclick="SolvePart1">Solve Part 1</button>
+<button class="btn btn-primary" @onclick="SolvePart2">Solve Part 2</button>
+
+<p>Part 1: @Part1Result</p>
+<p>Part 2: @Part2Result</p>
+
+@if (Banks2.Any())
+{
+    <table class="table table-sm table-bordered table-striped">
+        <thead>
+        <tr>
+            <th>Cells</th>
+            @foreach (var i in Enumerable.Range(1, 12))
+            {
+                <th>@i</th>
+            }
+            <th>Joltage</th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach (var bank in Banks2)
+        {
+            <tr>
+                <td>
+                    @foreach (var (idx, c) in bank.Cells.Index())
+                    {
+                        var charClass = bank.DigitIndices.Contains(idx) ? "fw-bold text-danger" : "";
+                        <span class="@(charClass)">@c</span>
+                    }
+                </td>
+                @foreach (var i in bank.Digits)
+                {
+                    <td>@i</td>
+                }
+                <td>@bank.Joltage</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+<br/>
+
+@if (Banks.Any())
+{
+    <table class="table table-sm table-bordered table-striped">
+        <thead>
+        <tr>
+            <th>Cells</th>
+            @* <th>Digit1Index</th> *@
+            @* <th>Digit2Index</th> *@
+            <th>Digit1</th>
+            <th>Digit2</th>
+            <th>Joltage</th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach (var bank in Banks)
+        {
+            <tr>
+                <td>
+                    @foreach (var (idx, c) in bank.Cells.Index())
+                    {
+                        var charClass = idx == bank.Digit1Index ? "fw-bold text-primary" : idx == bank.Digit2Index ? "fw-bold text-danger" : "";
+                        <span class="@(charClass)">@c</span>
+                    }
+                </td>
+                @* <td>@bank.Digit1Index</td> *@
+                @* <td>@bank.Digit2Index</td> *@
+                <td>@bank.Digit1</td>
+                <td>@bank.Digit2</td>
+                <td>@bank.Joltage</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+
+@code {
+    [CascadingParameter]
+    public Services.InputFileLoader InputFileLoader { get; set; } = default!;
+
+    private List<string> InputLines { get; set; } = new();
+
+    private InputDisplay InputDisplay { get; set; }
+
+    private int Part1Result { get; set; } = 0;
+    private long Part2Result { get; set; } = 0;
+
+    private List<List<int>> PowerBanks { get; set; } = new();
+    private List<Bank> Banks { get; set; } = new();
+    private List<Bank2> Banks2 { get; set; } = new();
+
+    protected override Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            InputLines = InputDisplay.GetInputLines();
+            PowerBanks = InputLines
+                .Select(x => x.Select(y => int.Parse($"{y}")).ToList())
+                .ToList();
+
+            StateHasChanged();
+        }
+
+        return base.OnAfterRenderAsync(firstRender);
+    }
+
+    private void SolvePart1()
+    {
+        Banks = PowerBanks
+            .Select(bank => new Bank(bank))
+            .ToList();
+        Part1Result = Banks.Sum(x => x.Joltage);
+    }
+
+    private void SolvePart2()
+    {
+        Banks2 = PowerBanks
+            .Select(bank => new Bank2(bank))
+            .ToList();
+        Part2Result = Banks2.Sum(x => x.Joltage);
+    }
+
+    private class Bank
+    {
+        public Bank(List<int> cells)
+        {
+            Cells = cells;
+
+            Digit1Index = 0;
+            for (var i = 1; i < cells.Count - 1; i++)
+            {
+                if (cells[i] > cells[Digit1Index])
+                {
+                    Digit1Index = i;
+                }
+            }
+
+            Digit2Index = Digit1Index + 1;
+            for (var i = Digit1Index + 1; i < cells.Count; i++)
+            {
+                if (cells[i] > cells[Digit2Index])
+                {
+                    Digit2Index = i;
+                }
+            }
+
+            Digit1 = cells[Digit1Index];
+            Digit2 = cells[Digit2Index];
+        }
+
+        public List<int> Cells { get; set; } = new();
+
+        public int Digit1Index { get; set; } = 0;
+        public int Digit2Index { get; set; } = 0;
+
+        public int Digit1 { get; set; } = 0;
+        public int Digit2 { get; set; } = 0;
+
+        public int Joltage => Digit1 * 10 + Digit2;
+    }
+
+    private class Bank2
+    {
+        public Bank2(List<int> cells)
+        {
+            Cells = cells;
+
+            DigitIndices = [];
+            foreach (var d in Enumerable.Range(0, 12))
+            {
+                var currentMax = DigitIndices.Any() ? DigitIndices.Last() + 1 : 0;
+                for (var i = currentMax; i < cells.Count - 11 + d; i++)
+                {
+                    if (cells[i] > cells[currentMax])
+                    {
+                        currentMax = i;
+                    }
+                }
+
+                DigitIndices.Add(currentMax);
+            }
+
+            Digits = DigitIndices.Select(x => cells[x]).ToList();
+            var joltStr = string.Join("", Digits.Select(x => x.ToString()));
+            Joltage = long.Parse(joltStr);
+        }
+
+        public List<int> Cells { get; set; } = new();
+
+        public List<int> DigitIndices { get; set; } = [];
+        public List<int> Digits { get; set; } = [];
+
+        public long Joltage { get; set; }
+    }
+}
+

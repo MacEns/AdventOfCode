@@ -2,6 +2,127 @@
 
 <PageTitle>Day 1</PageTitle>
 
-<h1>Day 1</h1>
+<InputDisplay InputFileLoader="InputFileLoader" Day="1" @ref="InputDisplay" />
 
-<p>Welcome to Day 1 of Advent of Code!</p>
+<button class="btn btn-primary" @onclick="SolvePart1">Solve Part 1</button>
+<button class="btn btn-primary" @onclick="SolvePart2">Solve Part 2</button>
+
+<p>Part 1: @Part1Result</p>
+<p>Part 2: @Part2Result</p>
+
+@if (P2Results.Any())
+{
+    <table class="table table-sm table-bordered table-striped">
+        <thead>
+        <tr>
+            <th>Index</th>
+            <th>Start</th>
+            <th>Turn</th>
+            <th>End</th>
+            <th>NewIndex</th>
+            <th>Points</th>
+            <th>TotalPoints</th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach (var r in P2Results)
+        {
+            var rowClass = r.Points >= 3
+                ? "table-warning"
+                : r.NewIndex != r.End
+                    ? "table-danger"
+                    : r.End == 0
+                        ? "table-success"
+                        :"";
+
+            <tr class="@(rowClass)">
+                <td>@r.Index</td>
+                <td>@r.Start</td>
+                <td>@r.Turn</td>
+                <td>@r.End</td>
+                <td>@r.NewIndex</td>
+                <td>@r.Points</td>
+                <td>@r.TotalPoints</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+
+@code {
+    [CascadingParameter]
+    public Services.InputFileLoader InputFileLoader { get; set; } = default!;
+
+    private List<string> InputLines { get; set; } = new();
+
+    private InputDisplay InputDisplay { get; set; }
+
+    private int Part1Result { get; set; } = 0;
+    private int Part2Result { get; set; } = 0;
+
+    private List<P2Result> P2Results { get; set; } = new();
+
+    protected override Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            InputLines = InputDisplay.GetInputLines();
+        }
+
+        return base.OnAfterRenderAsync(firstRender);
+    }
+
+    private void SolvePart1()
+    {
+        Part1Result = 0;
+        int index = 50;
+
+        var turns = ParseInput();
+
+        foreach (var turn in turns)
+        {
+            index = (index + turn + 100) % 100;
+            if (index == 0)
+            {
+                Part1Result++;
+            }
+        }
+    }
+
+    private void SolvePart2()
+    {
+        Part2Result = 0;
+        int index = 1000000000 + 50;
+
+        var turns = ParseInput();
+
+        foreach (var (idx, turn) in turns.Index())
+        {
+            var direction = turn >= 0 ? 1 : -1;
+            for (int i = 0; i < Math.Abs(turn); i++)
+            {
+                index += direction;
+                if (index % 100 == 0)
+                {
+                    Part2Result++;
+                }
+            }
+        }
+    }
+
+    private List<int> ParseInput()
+    {
+        var result = new List<int>();
+        foreach (var line in InputLines)
+        {
+            var direction = line.FirstOrDefault() == 'R' ? 1 : -1;
+            var value = int.Parse(line[1..]);
+            result.Add(direction * value);
+        }
+
+        return result;
+    }
+
+    private record P2Result(int Index, int Start, int Turn, int End, int NewIndex, int Points, int TotalPoints);
+}
+

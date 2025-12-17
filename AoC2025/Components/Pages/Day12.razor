@@ -2,6 +2,44 @@
 
 <PageTitle>Day 12</PageTitle>
 
-<h1>Day 12</h1>
+<InputDisplay InputFileLoader="InputFileLoader" Day="12" @ref="InputDisplay" />
 
-<p>Welcome to Day 12 of Advent of Code!</p>
+<button class="btn btn-primary" @onclick="SolvePart1">Solve Part 1</button>
+<button class="btn btn-primary" @onclick="SolvePart2">Solve Part 2</button>
+
+<p>Part 1: @Part1Result</p>
+<p>Part 2: @Part2Result</p>
+
+@code {
+    [CascadingParameter]
+    public Services.InputFileLoader InputFileLoader { get; set; } = default!;
+
+    private List<string> InputLines { get; set; } = new();
+
+    private InputDisplay InputDisplay { get; set; }
+
+    private int Part1Result { get; set; } = 0;
+    private int Part2Result { get; set; } = 0;
+
+    protected override Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            InputLines = InputDisplay.GetInputLines();
+            StateHasChanged();
+        }
+
+        return base.OnAfterRenderAsync(firstRender);
+    }
+
+    private void SolvePart1()
+    {
+
+    }
+
+    private void SolvePart2()
+    {
+
+    }
+}
+

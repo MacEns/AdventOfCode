@@ -1,0 +1,82 @@
+
+<div class="d-flex flex-row justify-content-between align-items-center mb-3">
+    <h1>Day @Day</h1>
+
+    @if (InputLines != null && InputLines.Any())
+    {
+        <button class="btn btn-primary mb-3" @onclick="ShowModal">View Full Input</button>
+    }
+</div>
+
+@if (IsLoading)
+{
+    <p><em>Loading input data...</em></p>
+}
+else if (InputLines == null || !InputLines.Any())
+{
+    <p><em>No input data loaded.</em></p>
+}
+
+@if (ShowInputModal && InputLines != null)
+{
+    <div class="modal show d-block" tabindex="-1" role="dialog" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Day @Day - Full Input (@InputLines.Count lines)</h5>
+                    <button type="button" class="btn-close" @onclick="HideModal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    @foreach (var line in InputLines)
+                    {
+                        <p class="my-0 border border-1">@line</p>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="HideModal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public Services.InputFileLoader InputFileLoader { get; set; } = default!;
+
+    [Parameter, EditorRequired]
+    public int Day { get; set; }
+
+    private List<string> InputLines { get; set; } = new();
+    private bool IsLoading { get; set; } = true;
+    private bool ShowInputModal { get; set; } = false;
+
+    public List<string> GetInputLines() => InputLines;
+
+    protected override async Task OnInitializedAsync()
+    {
+        InputLines = await InputFileLoader.LoadInputAsync($"{Day}.txt");
+        IsLoading = false;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Day > 0)
+        {
+            IsLoading = true;
+            InputLines = await InputFileLoader.LoadInputAsync($"{Day}.txt");
+            IsLoading = false;
+        }
+    }
+
+    private void ShowModal()
+    {
+        ShowInputModal = true;
+    }
+
+    private void HideModal()
+    {
+        ShowInputModal = false;
+    }
+}
+

@@ -2,6 +2,198 @@
 
 <PageTitle>Day 2</PageTitle>
 
-<h1>Day 2</h1>
+<InputDisplay InputFileLoader="InputFileLoader" Day="2" @ref="InputDisplay" />
 
-<p>Welcome to Day 2 of Advent of Code!</p>
+<button class="btn btn-primary" @onclick="SolvePart1">Solve Part 1</button>
+<button class="btn btn-primary" @onclick="SolvePart2">Solve Part 2</button>
+
+<p>Part 1: @Part1Result</p>
+<p>Part 2: @Part2Result</p>
+
+
+@if (Ranges.Any())
+{
+    <div class="d-flex flex-row gap-4">
+        <table class="table table-sm table-bordered table-striped">
+            <thead>
+            <tr>
+                <th>Start</th>
+                <th>End</th>
+                <th>Invalid 1</th>
+                @* <th>Sum 1</th> *@
+                <th>Invalid 2</th>
+                <th>Sum 2</th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var r in Ranges)
+            {
+
+                <tr>
+                    <td>@r.Start</td>
+                    <td>@r.End</td>
+                    <td>@string.Join(", ", r.Invalid1.Select(x => x.ToString()))</td>
+                    @* <td>@r.InvalidSum1</td> *@
+
+                    <td>@string.Join(", ", r.Invalid2.Select(x => x.ToString()))</td>
+                    <td>@r.InvalidSum2</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    [CascadingParameter]
+    public Services.InputFileLoader InputFileLoader { get; set; } = default!;
+
+    private List<string> InputLines { get; set; } = new();
+
+    private InputDisplay InputDisplay { get; set; }
+
+    private List<Range> Ranges { get; set; } = [];
+
+    private long Part1Result { get; set; } = 0;
+    private long Part2Result { get; set; } = 0;
+
+    protected override Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            InputLines = InputDisplay.GetInputLines();
+            Ranges = ParseRanges();
+            StateHasChanged();
+        }
+
+        return base.OnAfterRenderAsync(firstRender);
+    }
+
+    private void SolvePart1()
+    {
+        Part1Result = Ranges
+            .Select(r => r.InvalidSum1)
+            .Sum();
+    }
+
+    private void SolvePart2()
+    {
+        Part2Result = Ranges
+            .Select(r => r.InvalidSum2)
+            .Sum();
+    }
+
+    private List<Range> ParseRanges()
+    {
+        return InputLines
+            .First()
+            .Split(',')
+            .Select(r =>
+            {
+                var parts = r.Split('-');
+                return new Range(long.Parse(parts[0]), long.Parse(parts[1]));
+            })
+            .OrderBy(x => x.Start)
+            .ToList();
+    }
+
+    private class Range
+    {
+        public Range(long start, long end)
+        {
+            Start = start;
+            End = end;
+            Invalid1 = InvalidNumbersInRange1(start, end);
+            Invalid2 = InvalidNumbersInRange2(start, end);
+        }
+
+        public long Start { get; set; }
+        public long End { get; set; }
+
+
+        public List<long> Invalid1 { get; set; } = new();
+        public long InvalidSum1 => Invalid1.Sum();
+        public List<long> Invalid2 { get; set; } = new();
+        public long InvalidSum2 => Invalid2.Sum();
+
+        private List<long> InvalidNumbersInRange1(long start, long end)
+        {
+            var invalidNumbers = new List<long>();
+            for (var l = start; l <= end; l++)
+            {
+                var invalidNum = NumberIsValid1(l);
+                if (invalidNum != 0)
+                {
+                    invalidNumbers.Add(invalidNum);
+                }
+            }
+
+            return invalidNumbers;
+        }
+
+        private List<long> InvalidNumbersInRange2(long start, long end)
+        {
+            var invalidNumbers = new List<long>();
+            for (var l = start; l <= end; l++)
+            {
+                var invalidNum = NumberIsValid2(l);
+                if (invalidNum != 0)
+                {
+                    invalidNumbers.Add(invalidNum);
+                }
+            }
+
+            return invalidNumbers;
+        }
+
+        private long NumberIsValid1(long num)
+        {
+            if (num <= 10)
+            {
+                return 0;
+            }
+
+            var strNum = num.ToString();
+            if (strNum.Length % 2 != 0)
+            {
+                return 0;
+            }
+
+            var i = strNum.Length / 2;
+            var chunks = strNum.Chunk(i).ToList();
+            if (chunks.All(y => y.SequenceEqual(chunks[0])))
+            {
+                return num;
+            }
+
+            return 0;
+        }
+
+        private long NumberIsValid2(long num)
+        {
+            if (num <= 10)
+            {
+                return 0;
+            }
+
+            var strNum = num.ToString();
+            if (strNum.All(x => x == strNum[0]))
+            {
+                return num;
+            }
+
+            for (var i = 1; i <= strNum.Length / 2; i++)
+            {
+                var chunks = strNum.Chunk(i).ToList();
+                var chunk1 = chunks[0];
+                if (chunks.All(y => y.SequenceEqual(chunk1)))
+                {
+                    return num;
+                }
+            }
+
+            return 0;
+        }
+    }
+}
+

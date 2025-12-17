@@ -1,0 +1,11 @@
+@inject Services.InputFileLoader InputFileLoader
+
+<CascadingValue Value="InputFileLoader">
+    @ChildContent
+</CascadingValue>
+
+@code {
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+}
+

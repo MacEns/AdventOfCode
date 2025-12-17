@@ -2,6 +2,131 @@
 
 <PageTitle>Day 4</PageTitle>
 
-<h1>Day 4</h1>
+<InputDisplay InputFileLoader="InputFileLoader" Day="4" @ref="InputDisplay" />
 
-<p>Welcome to Day 4 of Advent of Code!</p>
+<button class="btn btn-primary" @onclick="SolvePart1">Solve Part 1</button>
+<button class="btn btn-primary" @onclick="SolvePart2">Solve Part 2</button>
+
+<p>Part 1: @Part1Result</p>
+<p>Part 2: @Part2Result</p>
+
+@if (Grid.Any())
+{
+    <table class="table table-sm table-bordered">
+        <tbody>
+        @foreach (var line in Grid)
+        {
+            <tr>
+                @foreach (var c in line)
+                {
+                    var charClass = c == '@' ? "fw-bold" : "";
+                    <td class="text-center @charClass" style="font-size: 8px;">@c</td>
+                }
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+
+@code {
+    [CascadingParameter]
+    public Services.InputFileLoader InputFileLoader { get; set; } = default!;
+
+    private List<string> InputLines { get; set; } = new();
+    private List<List<char>> Grid { get; set; } = new();
+
+    private InputDisplay InputDisplay { get; set; }
+
+    private int Part1Result { get; set; } = 0;
+    private int Part2Result { get; set; } = 0;
+
+    protected override Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            InputLines = InputDisplay.GetInputLines();
+            Grid = InputLines.Select(x => x.ToList()).ToList();
+
+            StateHasChanged();
+        }
+
+        return base.OnAfterRenderAsync(firstRender);
+    }
+
+    private void SolvePart1()
+    {
+        // The forklifts can only access a roll of paper if there are fewer than four rolls of paper in the eight adjacent positions.
+        // How many rolls of paper can be accessed by a forklift?
+
+        Part1Result = 0;
+        foreach (var (y, row) in Grid.Index())
+        {
+            foreach (var (x, c) in row.Index())
+            {
+                if (c != '@')
+                {
+                    continue;
+                }
+
+                if (GetAdjacentCount(x, y) < 4)
+                {
+                    Part1Result++;
+                }
+            }
+        }
+    }
+
+    private void SolvePart2()
+    {
+        Part2Result = 0;
+        var prevRemoved = 1;
+        while (prevRemoved > 0)
+        {
+            prevRemoved = 0;
+            for (int y = 0; y < Grid.Count; y++)
+            {
+                for (int x = 0; x < Grid[y].Count; x++)
+                {
+                    if (Grid[y][x] != '@')
+                    {
+                        continue;
+                    }
+
+                    if (GetAdjacentCount(x, y) < 4)
+                    {
+                        Part2Result++;
+                        Grid[y][x] = 'O';
+                        prevRemoved++;
+                    }
+                }
+            }
+        }
+    }
+
+    private int GetAdjacentCount(int x, int y)
+    {
+        var deltas = new (int dx, int dy)[]
+        {
+            (-1, -1), (0, -1), (1, -1),
+            (-1, 0),           (1, 0),
+            (-1, 1),  (0, 1),  (1, 1),
+        };
+
+        int count = 0;
+        foreach (var (dx, dy) in deltas)
+        {
+            var nx = x + dx;
+            var ny = y + dy;
+            if (nx >= 0 && nx < Grid[0].Count && ny >= 0 && ny < Grid.Count)
+            {
+                if (Grid[ny][nx] == '@')
+                {
+                    count++;
+                }
+            }
+        }
+
+        return count;
+    }
+}
+
