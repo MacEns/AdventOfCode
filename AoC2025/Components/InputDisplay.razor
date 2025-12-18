@@ -27,10 +27,12 @@ else if (InputLines == null || !InputLines.Any())
                     <button type="button" class="btn-close" @onclick="HideModal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    @foreach (var line in InputLines)
-                    {
-                        <p class="my-0 border border-1">@line</p>
-                    }
+                    <div class="overflow-auto w-100">
+                        @foreach (var line in InputLines)
+                        {
+                            <p class="my-0 border" style="min-height: 20px;">@(string.IsNullOrWhiteSpace(line) ? "(empty)" : line)</p>
+                        }
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" @onclick="HideModal">Close</button>

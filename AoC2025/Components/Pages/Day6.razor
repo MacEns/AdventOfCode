@@ -4,11 +4,117 @@
 
 <InputDisplay InputFileLoader="InputFileLoader" Day="6" @ref="InputDisplay" />
 
-<button class="btn btn-primary" @onclick="SolvePart1">Solve Part 1</button>
-<button class="btn btn-primary" @onclick="SolvePart2">Solve Part 2</button>
+<div class="d-flex flex-row gap-2 mb-2">
+    <button class="btn btn-primary" @onclick="SolvePart1">Solve Part 1</button>
+    <button class="btn btn-primary" @onclick="SolvePart2">Solve Part 2</button>
 
-<p>Part 1: @Part1Result</p>
-<p>Part 2: @Part2Result</p>
+    <div class="input-group border px-1 py-auto" style="width: 175px;">
+        <div class="form-check">
+            <input type="checkbox" class="form-check-input" @bind="ShowInput"/>
+        </div>
+        <label class="form-check-label ms-2">Show Input</label>
+    </div>
+
+    <div class="input-group border px-1 py-auto" style="width: 175px;">
+        <div class="form-check">
+            <input type="checkbox" class="form-check-input" @bind="ShowGrid"/>
+        </div>
+        <label class="form-check-label ms-2">Show Grid</label>
+    </div>
+
+    <div class="input-group border px-1 py-auto" style="width: 200px;">
+        <div class="form-check">
+            <input type="checkbox" class="form-check-input" @bind="ShowEquations"/>
+        </div>
+        <label class="form-check-label ms-2">Show Equations</label>
+    </div>
+
+    <p>Part 1: @Part1Result</p>
+    <p>Part 2: @Part2Result</p>
+</div>
+
+@if (ShowInput)
+{
+    <div class="mb-4 overflow-auto" style="width: 1500px;">
+        <table class="table table-sm table-bordered">
+            <tbody>
+            @foreach (var row in InputLines)
+            {
+                <tr>
+                    @foreach (var ch in row)
+                    {
+                        <td>@ch</td>
+                    }
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
+
+@if (ShowGrid && NumberGrid.Any())
+{
+    <div class="mb-4 overflow-auto" style="width: 1500px;">
+        <table class="table table-sm table-bordered">
+            <tbody>
+            @foreach (var row in NumberGrid)
+            {
+                <tr>
+                    @foreach (var ch in row)
+                    {
+                        <td>@ch</td>
+                    }
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
+
+<div class="d-flex flex-row gap-4">
+    @if (ShowGrid && InverseGrid.Any())
+    {
+        <div class="mb-4 overflow-auto" style="width: 500px;">
+            <table class="table table-sm table-bordered">
+                <tbody>
+                @foreach (var row in InverseGrid)
+                {
+                    <tr>
+                        @foreach (var ch in row)
+                        {
+                            <td>@ch</td>
+                        }
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+    @if (ShowEquations && Equations.Any())
+    {
+        <div class="mb-4 overflow-auto" style="width: 1000px;">
+            <table class="table table-sm table-bordered">
+                <thead>
+                <tr>
+                    <th>Equation #</th>
+                    <th>Values</th>
+                    <th>Result</th>
+                </tr>
+                </thead>
+                <tbody>
+                @foreach (var (idx, eq) in Equations.Index())
+                {
+                    <tr>
+                        <td>@idx</td>
+                        <td>@(string.Join($"{eq.Operator}", eq.Values))</td>
+                        <td>@eq.Result()</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
 
 @code {
     [CascadingParameter]
@@ -18,28 +124,144 @@
 
     private InputDisplay InputDisplay { get; set; }
 
-    private int Part1Result { get; set; } = 0;
-    private int Part2Result { get; set; } = 0;
+    private long Part1Result { get; set; } = 0;
+    private long Part2Result { get; set; } = 0;
+
+    private List<Equation> Equations { get; set; } = new();
+    private List<List<char>> NumberGrid { get; set; } = new();
+    private List<List<char>> InverseGrid { get; set; } = new();
+
+    private bool ShowInput = true;
+    private bool ShowEquations = true;
+    private bool ShowGrid = true;
 
     protected override Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
             InputLines = InputDisplay.GetInputLines();
+
             StateHasChanged();
         }
 
         return base.OnAfterRenderAsync(firstRender);
     }
 
+    private void GenerateEquations()
+    {
+        var lines = InputLines
+            .Select(line => line.Split(' ').Where(x => !string.IsNullOrWhiteSpace(x)).ToList())
+            .ToList();
+        Equations = Enumerable.Range(0, lines.First().Count)
+            .Select(_ => new Equation())
+            .ToList();
+
+        foreach (var (idx, eq) in Equations.Index())
+        {
+            eq.Values = lines.Take(lines.Count - 1).Select(x => long.Parse(x[idx])).ToList();
+            eq.Operator = lines.Last()[idx].ToCharArray()[0];
+        }
+    }
+
     private void SolvePart1()
     {
-
+        GenerateEquations();
+        Part1Result = Equations.Select(x => x.Result()).Sum();
     }
 
     private void SolvePart2()
     {
+        var ops = InputLines
+            .Last()
+            .Split(' ')
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x[0])
+            .ToList();
 
+        Equations = ops.Select(x => new Equation { Operator = x }).ToList();
+
+        NumberGrid = InputLines
+            .Take(InputLines.Count - 1)
+            .Select(x => x.ToCharArray().ToList())
+            .ToList();
+
+        InverseGrid = new List<List<char>>();
+        for (int col = 0; col < NumberGrid.First().Count; col++)
+        {
+            var newRow = new List<char>();
+            for (var row = 0; row < NumberGrid.Count; row++)
+            {
+                newRow.Add(NumberGrid[row][col]);
+            }
+            InverseGrid.Add(newRow);
+        }
+
+        var newNumbers = InverseGrid
+            .Select(x => x.All(y => y == ' ') ? -1 : long.Parse(new string(x.ToArray())))
+            .ToList();
+
+        for (var i = 1; i < newNumbers.Count; i++)
+        {
+            var prev = newNumbers[i - 1];
+            var cur = newNumbers[i];
+            if (prev == -1 && cur == -1)
+            {
+                newNumbers[i - 1]--;
+            }
+        }
+
+        newNumbers = newNumbers.Where(x => x != -2).ToList();
+        List<List<long>> groups = [];
+        var newList = new List<long>();
+        foreach (var num in newNumbers)
+        {
+            if (num == -1)
+            {
+                groups.Add(newList);
+                newList = new List<long>();
+            }
+            else
+            {
+                newList.Add(num);
+            }
+        }
+
+        groups.Add(newList);
+
+        foreach (var (idx, eq) in Equations.Index())
+        {
+            eq.Values = groups[idx];
+        }
+
+        Part2Result = Equations.Select(x => x.Result()).Sum();
+    }
+
+    private class Equation
+    {
+        public char Operator { get; set; } = '_';
+        public List<long> Values { get; set; } = [];
+
+        public long Result()
+        {
+            if (!Values.Any())
+            {
+                return 0;
+            }
+
+            if (Operator == '+')
+            {
+                return Values.Sum();
+            }
+
+            var result = Values.First();
+
+            for (int i = 1 ; i < Values.Count; i++)
+            {
+                result *= Values[i];
+            }
+
+            return result;
+        }
     }
 }
 

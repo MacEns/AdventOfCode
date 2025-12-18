@@ -4,11 +4,68 @@
 
 <InputDisplay InputFileLoader="InputFileLoader" Day="7" @ref="InputDisplay" />
 
-<button class="btn btn-primary" @onclick="SolvePart1">Solve Part 1</button>
-<button class="btn btn-primary" @onclick="SolvePart2">Solve Part 2</button>
+<div class="d-flex flex-row gap-2 mb-2">
+    <button class="btn btn-primary" @onclick="SolvePart1">Solve Part 1</button>
+    <button class="btn btn-primary" @onclick="SolvePart2">Solve Part 2</button>
 
-<p>Part 1: @Part1Result</p>
-<p>Part 2: @Part2Result</p>
+    <p>Part 1: @Part1Result</p>
+    <p>Part 2: @Part2Result</p>
+
+    <div class="input-group border px-1 py-auto" style="width: 175px;">
+        <div class="form-check">
+            <input type="checkbox" class="form-check-input" @bind="ShowGrid"/>
+        </div>
+        <label class="form-check-label ms-2">Show Grid</label>
+    </div>
+
+    <div class="input-group border px-1 py-auto" style="width: 175px;">
+        <div class="form-check">
+            <input type="checkbox" class="form-check-input" @bind="ShowGrid2"/>
+        </div>
+        <label class="form-check-label ms-2">Show Grid 2</label>
+    </div>
+</div>
+
+
+@if (ShowGrid && Grid.Any())
+{
+    <div class="mb-4 overflow-auto" style="width: 1500px;">
+        <table class="table table-sm table-bordered">
+            <tbody>
+            @foreach (var row in Grid)
+            {
+                <tr>
+                    @foreach (var ch in row)
+                    {
+                        <td class="text-center @GetCellClass(ch)">@ch</td>
+                    }
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
+
+@if (ShowGrid2 && Grid2.Any())
+{
+    <div class="mb-4 overflow-auto" style="width: 1800px;">
+        <table class="table table-sm table-bordered">
+            <tbody>
+            @foreach (var row in Grid2)
+            {
+                <tr>
+                    @foreach (var ch in row)
+                    {
+                        <td class="text-center @GetCellClass(ch)" style="@GetCellStyle(ch)">
+                            @(ch < 0 ? "^" : ch == 0 ? "." : ch.ToString())
+                        </td>
+                    }
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
 
 @code {
     [CascadingParameter]
@@ -19,13 +76,20 @@
     private InputDisplay InputDisplay { get; set; }
 
     private int Part1Result { get; set; } = 0;
-    private int Part2Result { get; set; } = 0;
+    private long Part2Result { get; set; } = 0;
+
+    private List<List<char>> Grid { get; set; } = new();
+    private List<List<long>> Grid2 { get; set; } = new();
+
+    private bool ShowGrid = false;
+    private bool ShowGrid2 = true;
 
     protected override Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
             InputLines = InputDisplay.GetInputLines();
+            Grid = InputLines.Select(x => x.ToCharArray().ToList()).ToList();
             StateHasChanged();
         }
 
@@ -34,12 +98,152 @@
 
     private void SolvePart1()
     {
+        Part1Result = 0;
 
+        List<int> beamIndices = new() { Grid[0].IndexOf('S') };
+        for (int y = 1; y < Grid.Count; y++)
+        {
+            var row = Grid[y];
+            var newBeamIndices = new List<int>();
+            foreach (var col in beamIndices)
+            {
+                if (row[col] == '.')
+                {
+                    row[col] = '|';
+                    newBeamIndices.Add(col);
+                }
+                else if (row[col] == '^')
+                {
+                    Part1Result++;
+                    if (row[col] > 0 && row[col - 1] == '.')
+                    {
+                        row[col - 1] = '|';
+                        newBeamIndices.Add(col - 1);
+                    }
+
+                    if (col + 1 < row.Count && row[col + 1] == '.')
+                    {
+                        row[col + 1] = '|';
+                        newBeamIndices.Add(col + 1);
+                    }
+
+                }
+            }
+
+            beamIndices = newBeamIndices;
+            StateHasChanged();
+        }
     }
 
     private void SolvePart2()
     {
+        Grid2 = Grid
+            .Select(x => x.Select(y => y == '.' ? 0L : y == '^' ? -1L : 1L).ToList())
+            .ToList();
 
+        var startIndex = Grid2[0].IndexOf(1);
+        // Grid2[0][startIndex] = '1';
+
+        List<int> beamIndices = new() { startIndex };
+        for (int y = 1; y < Grid2.Count; y++)
+        {
+            var newBeamIndices = new List<int>();
+            foreach (var col in beamIndices.Distinct())
+            {
+                var prev = Grid2[y - 1][col];
+
+                if (Grid2[y][col] == 0)
+                {
+                    try
+                    {
+                        Grid2[y][col] += prev;
+                        newBeamIndices.Add(col);
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine($"Error going straight at y={y} x={col}");
+                    }
+                }
+                else if (Grid2[y][col] == -1)
+                {
+                    try
+                    {
+                        if (col > 0 && Grid2[y][col - 1] > -1)
+                        {
+                            var left = Grid2[y][col - 1] + prev;
+                            Grid2[y][col - 1] = left;
+                            newBeamIndices.Add(col - 1);
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine($"Error going left at y={y} x={col}");
+                    }
+
+                    try
+                    {
+                        if (col + 1 < Grid2[y].Count && Grid2[y][col + 1] > -1)
+                        {
+                            var right = Grid2[y][col + 1] + prev;
+                            Grid2[y][col + 1] = right;
+                            newBeamIndices.Add(col + 1);
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine($"Error going right at y={y} x={col}");
+                    }
+                }
+                else if (Grid2[y][col] > 0)
+                {
+                    try
+                    {
+                        Grid2[y][col] += prev;
+                        newBeamIndices.Add(col);
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine($"Error going straight at y={y} x={col}");
+                    }
+                }
+            }
+
+            beamIndices = newBeamIndices;
+            StateHasChanged();
+        }
+
+        Part2Result = Grid2.Last().Where(x => x > 0).Sum();
     }
+
+    private string GetCellClass(char ch) => ch switch
+    {
+        '^' => "fw-bold text-primary",
+        'S' => "fw-bold text-success",
+        '|' => "fw-bold text-danger",
+        _ => string.Empty,
+    };
+
+    private string GetCellClass(long ch) => ch switch
+    {
+        >=30 => "fw-bold table-danger",
+        >=20 => "fw-bold table-warning",
+        >=10 => "fw-bold table-success",
+        >=5 => "fw-bold table-primary",
+        >=1 => "fw-bold table-secondary",
+        <0 => "fw-bold table-dark",
+        _ => string.Empty,
+    };
+
+    private string GetCellStyle(long ch) => ch switch
+    {
+        >=300 => "font-size: 10px;",
+        // >=30 => "font-size: 8px;",
+        // >=20 => "font-size: 9px;",
+        // >=10 => "font-size: 10px;",
+        >=5 => "font-size: 11px;",
+        >=1 => "font-size: 11px;",
+        <0 => "",
+        _ => string.Empty,
+    };
 }
 

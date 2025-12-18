@@ -4,11 +4,13 @@
 
 <InputDisplay InputFileLoader="InputFileLoader" Day="9" @ref="InputDisplay" />
 
-<button class="btn btn-primary" @onclick="SolvePart1">Solve Part 1</button>
-<button class="btn btn-primary" @onclick="SolvePart2">Solve Part 2</button>
+<div class="d-flex flex-row gap-2 mb-2">
+    <button class="btn btn-primary" @onclick="SolvePart1">Solve Part 1</button>
+    <button class="btn btn-primary" @onclick="SolvePart2">Solve Part 2</button>
 
-<p>Part 1: @Part1Result</p>
-<p>Part 2: @Part2Result</p>
+    <p>Part 1: @Part1Result</p>
+    <p>Part 2: @Part2Result</p>
+</div>
 
 @code {
     [CascadingParameter]

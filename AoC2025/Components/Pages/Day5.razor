@@ -102,10 +102,75 @@
     {
         Part2Result = 0;
 
-        // solve the overlapping ranges first
-        foreach (var range in Ranges)
+        var ranges = Ranges.Select(x => new Range(x.Start, x.End)).ToList();
+        ranges = Range.MergeOverlappingRanges(ranges);
+        foreach (var range in ranges)
         {
-            Part2Result += range.End - range.Start + 1;
+            Part2Result += range.Length;
+        }
+    }
+
+    private class Range
+    {
+        public Range(long start, long end)
+        {
+            Start = start;
+            End = end;
+        }
+
+        public long Start { get; set; }
+        public long End { get; set; }
+        public long Length => End - Start + 1;
+
+        public bool Overlaps(Range range)
+        {
+            if (Start <= range.Start && range.Start <= End)
+            {
+                return true;
+            }
+
+            if (Start <= range.End && range.End <= End)
+            {
+                return true;
+            }
+
+            if (range.Start <= Start && Start <= range.End)
+            {
+                return true;
+            }
+
+            if (range.Start <= End && End <= range.End)
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        public static List<Range> MergeOverlappingRanges(List<Range> ranges)
+        {
+            if (!ranges.Any())
+            {
+                return [];
+            }
+
+            ranges = ranges.OrderBy(r => r.Start).ToList();
+            var mergedRanges = new List<Range> { ranges[0] };
+
+            foreach (var current in ranges.Skip(1))
+            {
+                var lastMerged = mergedRanges.Last();
+                if (lastMerged.Overlaps(current))
+                {
+                    lastMerged.End = Math.Max(lastMerged.End, current.End);
+                }
+                else
+                {
+                    mergedRanges.Add(current);
+                }
+            }
+
+            return mergedRanges;
         }
     }
 }
