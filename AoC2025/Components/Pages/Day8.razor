@@ -7,41 +7,254 @@
 <div class="d-flex flex-row gap-2 mb-2">
     <button class="btn btn-primary" @onclick="SolvePart1">Solve Part 1</button>
     <button class="btn btn-primary" @onclick="SolvePart2">Solve Part 2</button>
+    <button class="btn btn-primary" @onclick="Test">Test</button>
 
     <p>Part 1: @Part1Result</p>
     <p>Part 2: @Part2Result</p>
 </div>
+
+
+@if (Distances.Any())
+{
+    <div class="d-flex flex-row  gap-2">
+        @* <div class="d-flex flex-column  gap-2"> *@
+        @*     @foreach (var v1 in Distances.Keys) *@
+        @*     { *@
+        @*         <div class="mb-4 overflow-auto" style="width: 500px;"> *@
+        @*             <table class="table table-sm table-bordered"> *@
+        @*                 <thead> *@
+        @*                 <tr> *@
+        @*                     <th>@v1</th> *@
+        @*                     <th></th> *@
+        @*                     <th>Distance</th> *@
+        @*                 </tr> *@
+        @*                 </thead> *@
+        @*                 <tbody> *@
+        @*                 @foreach (var (i, row) in Distances[v1].Index()) *@
+        @*                 { *@
+        @*                     <tr> *@
+        @*                         <td>@(i + 1)</td> *@
+        @*                         <td>@row.Key</td> *@
+        @*                         <td>@row.Value.ToString("F2")</td> *@
+        @*                     </tr> *@
+        @*                 } *@
+        @*                 </tbody> *@
+        @*             </table> *@
+        @*         </div> *@
+        @*     } *@
+        @* </div> *@
+
+        <div class="mb-4 overflow-auto" style="width: 500px;">
+            <table class="table table-sm table-bordered">
+                <tbody>
+                @foreach (var row in TestData.Index())
+                {
+                    <tr>
+                        <td>@(row.Index + 1)</td>
+                        <td class="@(Circuits.Any(c => c.Contains(row.Item.Id)) ? "" : "table-warning")">@row.Item.Id</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="mb-4 overflow-auto" style="width: 1200px;">
+            <table class="table table-sm table-bordered">
+                <tbody>
+                @foreach (var (i, circuit) in Circuits.Index())
+                {
+                    <tr>
+                        <td>@(i + 1)</td>
+                        <td>@circuit.Count </td>
+                        <td>@string.Join(", ", circuit)</td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
 
 @code {
     [CascadingParameter]
     public Services.InputFileLoader InputFileLoader { get; set; } = default!;
 
     private List<string> InputLines { get; set; } = new();
+    private Dictionary<string, V3> Coordinates { get; set; } = new();
+
+    private List<(string V1, string V2)> Connections { get; set; } = new();
 
     private InputDisplay InputDisplay { get; set; }
 
     private int Part1Result { get; set; } = 0;
     private int Part2Result { get; set; } = 0;
 
+    private List<V3> TestData = new()
+    {
+        new V3("162,817,812"),
+        new V3("57,618,57"),
+        new V3("906,360,560"),
+        new V3("592,479,940"),
+        new V3("352,342,300"),
+        new V3("466,668,158"),
+        new V3("542,29,236"),
+        new V3("431,825,988"),
+        new V3("739,650,466"),
+        new V3("52,470,668"),
+        new V3("216,146,977"),
+        new V3("819,987,18"),
+        new V3("117,168,530"),
+        new V3("805,96,715"),
+        new V3("346,949,466"),
+        new V3("970,615,88"),
+        new V3("941,993,340"),
+        new V3("862,61,35"),
+        new V3("984,92,344"),
+        new V3("425,690,689"),
+    };
+
+    Dictionary<string, List<KeyValuePair<string, double>>> Distances = new();
+
+    private List<HashSet<string>> Circuits { get; set; } = new();
+
     protected override Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
             InputLines = InputDisplay.GetInputLines();
+            Coordinates = InputLines.Select(x => new V3(x)).ToDictionary(x => x.Id);
             StateHasChanged();
         }
 
         return base.OnAfterRenderAsync(firstRender);
     }
 
-    private void SolvePart1()
+    private async Task Test()
     {
-
+        await Connect(TestData, 10);
     }
 
-    private void SolvePart2()
+    private async Task Connect(List<V3> data, int iterations)
     {
+        var startTime = DateTime.Now;
 
+        Distances = new();
+        Circuits = new();
+
+        Console.WriteLine("Generating Distances...");
+        foreach (var v1 in data)
+        {
+            List<KeyValuePair<string, double>> v1Distances = new();
+            foreach (var v2 in data)
+            {
+                if (v1 == v2)
+                {
+                    continue;
+                }
+
+                var dist = v1.Distance(v2);
+                v1Distances.Add(new(v2.Id, dist));
+            }
+
+            v1Distances = v1Distances.OrderBy(x => x.Value).ToList();
+            Distances.Add(v1.Id, v1Distances);
+        }
+
+        Console.WriteLine("Generating edges...");
+        var edges = Distances
+            .SelectMany(x =>
+            {
+                return x.Value
+                    .Select(y =>
+                    {
+                        var v1 = x.Key;
+                        var v2 = y.Key;
+                        var dist = y.Value;
+                        return (V1: v1, V2: v2, Distance: dist);
+                    });
+            })
+            .OrderBy(x => x.Distance)
+            .ToList();
+
+        // Create initial circuits from closest edges
+        Circuits = data.Select(x => new HashSet<string> { x.Id }).ToList();
+
+        Console.WriteLine("Connecting edges...");
+        var connectionCount = 0;
+        while (edges.Any() && connectionCount < iterations)
+        {
+            if (edges.Count % 1000 == 0)
+            {
+                Console.WriteLine($"Edges Remaining: {edges.Count}");
+            }
+
+            if (edges.Count <= 5)
+            {
+                Console.WriteLine($"Final two: {edges[0].V1} <-> {edges[0].V2}");
+            }
+
+            var min = edges.First();
+
+            if (Circuits.Any(x => x.Contains(min.V1) && x.Contains(min.V2)))
+            {
+                edges.Remove(min);
+                var inv = edges.FirstOrDefault(x => x.V1 == min.V2 && x.V2 == min.V1);
+                if (inv != default)
+                {
+                    edges.Remove(inv);
+                }
+                connectionCount++;
+                continue;
+            }
+
+            edges.Remove(min);
+            var inverse = edges.FirstOrDefault(x => x.V1 == min.V2 && x.V2 == min.V1);
+            if (inverse != default)
+            {
+                edges.Remove(inverse);
+            }
+
+            var v1Circuit = Circuits.FirstOrDefault(x => x.Contains(min.V1));
+            var v2Circuit = Circuits.FirstOrDefault(x => x.Contains(min.V2));
+
+            v1Circuit.UnionWith(v2Circuit);
+            Circuits.Remove(v2Circuit);
+
+            connectionCount++;
+        }
+
+        Console.WriteLine($"Program ran in {(DateTime.Now - startTime).TotalSeconds.ToString("F2")} seconds");
+    }
+
+    private async Task SolvePart1()
+    {
+        await Connect(Coordinates.Values.ToList(), 1000);
+        var top3 = Circuits.Select(x => x.Count).OrderDescending().Take(3).ToList();
+        Part1Result = top3[0] * top3[1] * top3[2];
+    }
+
+    private async Task SolvePart2()
+    {
+        await Connect(Coordinates.Values.ToList(), int.MaxValue);
+    }
+
+    private class V3
+    {
+        public V3(string s)
+        {
+            var parts = s.Split(',', StringSplitOptions.TrimEntries);
+            X = long.Parse(parts[0]);
+            Y = long.Parse(parts[1]);
+            Z = long.Parse(parts[2]);
+        }
+
+        public long X { get; set; } = 0;
+        public long Y { get; set; } = 0;
+        public long Z { get; set; } = 0;
+
+        public string Id => $"({X},{Y},{Z})";
+
+        public double Distance(V3 v3) => Math.Sqrt(Math.Pow(v3.X - X, 2) + Math.Pow(v3.Y - Y, 2) + Math.Pow(v3.Z - Z, 2));
     }
 }
 
