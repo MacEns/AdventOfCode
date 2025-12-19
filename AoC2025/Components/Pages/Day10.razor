@@ -7,21 +7,68 @@
 <div class="d-flex flex-row gap-2 mb-2">
     <button class="btn btn-primary" @onclick="SolvePart1">Solve Part 1</button>
     <button class="btn btn-primary" @onclick="SolvePart2">Solve Part 2</button>
+    <button class="btn btn-primary" @onclick="Test">Test</button>
+    <button class="btn btn-primary" @onclick="Test2">Test2</button>
+
+    <div class="input-group border border-primary rounded-2" style="width: 200px;">
+        <div class="form-control">
+            <input class="form-check-input" type="checkbox" @bind="CancelTest" />
+        </div>
+        <label class="input-group-text">Cancel test</label>
+    </div>
 
     <p>Part 1: @Part1Result</p>
     <p>Part 2: @Part2Result</p>
 </div>
 
+@if (Machines.Any())
+{
+    <div class="mb-4 overflow-auto" style="width: 1000px;">
+        <table class="table table-sm table-bordered">
+            <thead>
+            <tr>
+                <th></th>
+                <th>Indicator Light Diagram</th>
+                <th>Button Wirings</th>
+                <th>Joltages</th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var (y, machine) in Machines.Index())
+            {
+                <tr>
+                    <td>@(y)</td>
+                    <td>@LightsToString(machine.IndicatorLightDiagram)</td>
+                    <td>@ButtonWiringToString(machine.ButtonWirings)</td>
+                    <td>@JoltagesToString(machine.Joltages)</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
 @code {
     [CascadingParameter]
     public Services.InputFileLoader InputFileLoader { get; set; } = default!;
 
     private List<string> InputLines { get; set; } = new();
 
-    private InputDisplay InputDisplay { get; set; }
+    private List<Machine> Machines { get; set; } = new();
 
-    private int Part1Result { get; set; } = 0;
-    private int Part2Result { get; set; } = 0;
+    private InputDisplay InputDisplay { get; set; } = default!;
+
+    private long Part1Result { get; set; } = 0;
+    private long Part2Result { get; set; } = 0;
+
+    private bool CancelTest { get; set; } = false;
+
+    public List<string> TestData = new()
+    {
+        // "[.#.] (0) (2) (1,2) {1,2,3}",
+        "[.##.] (3) (1,3) (2) (2,3) (0,2) (0,1) {3,5,4,7}",
+        "[...#.] (0,2,3,4) (2,3) (0,4) (0,1,2) (1,2,3,4) {7,5,12,7,2}",
+        "[.###.#] (0,1,2,3,4) (0,3,4) (0,1,2,4,5) (1,2) {10,11,11,5,10,5}",
+    };
 
     protected override Task OnAfterRenderAsync(bool firstRender)
     {
@@ -34,14 +81,157 @@
         return base.OnAfterRenderAsync(firstRender);
     }
 
+    private async Task Test()
+    {
+        Machines = TestData.Select(x => new Machine(x)).ToList();
+
+        // Machine[0] = 2: ((0,2) and (0,1))
+        // Machine[1] = 3: ((0,4), (0,1,2), and (1,2,3,4))
+        // Machine[2] = 2: (0,3,4) and (0,1,2,4,5)
+        // Total = 7
+
+        var result = await SolveMachine(Machines[0]);
+        Console.WriteLine($"Result Machine 0: {result}");
+    }
+
+    private async Task<int> SolveMachine(Machine machine)
+    {
+        Console.WriteLine($"\nDiagram: {LightsToString(machine.IndicatorLightDiagram)}");
+        var result = 1;
+
+        var diagram = machine.IndicatorLightDiagram;
+        var buttons = machine.ButtonWirings.Select(x => ButtonToBools(x, diagram.Count)).ToList();
+
+        if (buttons.Any(x => x.SequenceEqual(machine.IndicatorLightDiagram)))
+        {
+            Console.WriteLine($"Machine has matching perfect Button: {LightsToString(diagram)}");
+            return result;
+        }
+
+        Console.WriteLine($"No single buttons worked: ({string.Join("), (", buttons.Select(LightsToString))})");
+
+        Console.WriteLine("Checking button combinations...");
+        var comboFound = false;
+        List<List<bool>> combos = buttons.ToList();
+        while (!comboFound && !CancelTest)
+        {
+            Console.WriteLine($"Checking {result + 1} combinations...");
+            List<List<bool>> newCombos = [];
+            for (int i = 0; i < combos.Count; i++)
+            {
+                if (comboFound)
+                {
+                    break;
+                }
+
+                for (var j = 0; j < buttons.Count; j++)
+                {
+                    var combo = ButtonCombo(combos[i], buttons[j]);
+                    // Console.WriteLine($"Checking combo {LightsToString(combos[i])} + {LightsToString(buttons[j])} = {LightsToString(combo)}");
+
+                    if (LightsToString(combo) == LightsToString(diagram))
+                    {
+                        Console.WriteLine($"Machine has matching button Combo: {LightsToString(combos[i])} + {LightsToString(buttons[j])} = {LightsToString(diagram)}");
+                        comboFound = true;
+                        break;
+                    }
+
+                    newCombos.Add(combo);
+                }
+            }
+
+            combos = newCombos.DistinctBy(LightsToString).ToList();
+            result++;
+
+            await Task.Delay(1000);
+        }
+
+        Console.WriteLine($"Found combination with {result} buttons.");
+
+        CancelTest = false;
+        return result;
+    }
+
+    private List<bool> ButtonCombo(List<bool> b1, List<bool> b2) => b1.Select((x, i) => x && !b2[i]).ToList();
+
     private void SolvePart1()
     {
+        Machines = InputLines.Select(x => new Machine(x)).ToList();
+        Console.WriteLine($"Longest light sequence: {Machines.Max(x => x.IndicatorLightDiagram.Count)}");
 
+    }
+
+    private void Test2()
+    {
+        Machines = TestData.Select(x => new Machine(x)).ToList();
     }
 
     private void SolvePart2()
     {
+        Machines = InputLines.Select(x => new Machine(x)).ToList();
 
+    }
+
+    private List<bool> PressButton(List<int> button, List<bool> lights)
+    {
+        foreach (var b in button)
+        {
+            lights[b] = !lights[b];
+        }
+
+        return lights;
+    }
+
+    private List<bool> ButtonToBools(List<int> button, int lightCount)
+    {
+        var result = new List<bool>(new bool[lightCount]);
+        foreach (var b in button)
+        {
+            result[b] = true;
+        }
+
+        return result;
+    }
+
+    private string LightsToString(List<bool> lights) => string.Concat(lights.Select(x => x ? '#' : '.'));
+    private string ButtonToString(List<int> button) => $"({string.Join(", ", button.Select(y => y.ToString()))})";
+    private string ButtonWiringToString(List<List<int>> wiring) => string.Join(", ", wiring.Select(ButtonToString));
+    private string JoltagesToString(List<int> joltages) => string.Join(", ", joltages.Select(x => x.ToString()).ToList());
+
+    private class Machine
+    {
+        public List<bool> IndicatorLights { get; set; } = new();
+
+        public List<bool> IndicatorLightDiagram { get; set; } = new();
+        public List<List<int>> ButtonWirings { get; set; } = new();
+        public List<int> Joltages { get; set; } = new();
+
+        public Machine(string input)
+        {
+            var inputChunks = input.Split(' ');
+            IndicatorLightDiagram = inputChunks[0].TrimStart('[').TrimEnd(']').Select(x => x == '#').ToList();
+            IndicatorLights = IndicatorLightDiagram.Select(_ => false).ToList();
+
+            ButtonWirings = inputChunks
+                .Where(x => x.StartsWith('('))
+                .Select(x => x.TrimStart('(').TrimEnd(')').Split(',').Select(y => int.Parse(y)).ToList())
+                .ToList();
+            Joltages = inputChunks
+                .FirstOrDefault(x => x.StartsWith('{'))
+                .TrimStart('{')
+                .TrimEnd('}')
+                .Split(',')
+                .Select(y => int.Parse(y))
+                .ToList();
+        }
+
+        public void OnButtonPress(List<int> button, List<bool> lights)
+        {
+            foreach (var b in button)
+            {
+                lights[b] = !lights[b];
+            }
+        }
     }
 }
 

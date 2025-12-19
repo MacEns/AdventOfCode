@@ -1,4 +1,6 @@
 @page "/day9"
+@inject IJSRuntime JSRuntime
+
 
 <PageTitle>Day 9</PageTitle>
 
@@ -7,10 +9,64 @@
 <div class="d-flex flex-row gap-2 mb-2">
     <button class="btn btn-primary" @onclick="SolvePart1">Solve Part 1</button>
     <button class="btn btn-primary" @onclick="SolvePart2">Solve Part 2</button>
+    <button class="btn btn-primary" @onclick="Test">Test</button>
+    <button class="btn btn-primary" @onclick="Test2">Test2</button>
 
     <p>Part 1: @Part1Result</p>
     <p>Part 2: @Part2Result</p>
 </div>
+
+
+<div class="mb-4">
+    <canvas id="lineCanvas" width="1200" height="1000" style="border: 1px solid black;"></canvas>
+</div>
+
+@if (Lines.Any())
+{
+    <div class="mb-4 overflow-auto" style="width: 1000px;">
+        <table class="table table-sm table-bordered">
+            <tbody>
+            @foreach (var (y, line) in Lines.Index())
+            {
+                <tr>
+                    <td>@(y)</td>
+                    <td>(@line.X1 @line.Y1)</td>
+                    <td>(@line.X2 @line.Y2)</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
+
+@if (!Lines.Any() && Grid.Any())
+{
+    <div class="mb-4 overflow-auto" style="width: 1000px;">
+        <table class="table table-sm table-bordered">
+            <thead>
+            <tr>
+                <th></th>
+                @foreach (var (x, _) in Grid[0].Index())
+                {
+                    <th class="text-center">@(x)</th>
+                }
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var (y, row) in Grid.Index())
+            {
+                <tr>
+                    <td class="text-center">@(y)</td>
+                    @foreach (var ch in row)
+                    {
+                        <td class="text-center @(GetClass(ch))">@ch</td>
+                    }
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
 
 @code {
     [CascadingParameter]
@@ -18,10 +74,26 @@
 
     private List<string> InputLines { get; set; } = new();
 
-    private InputDisplay InputDisplay { get; set; }
+    private InputDisplay InputDisplay { get; set; } = default!;
 
-    private int Part1Result { get; set; } = 0;
-    private int Part2Result { get; set; } = 0;
+    private long Part1Result { get; set; } = 0;
+    private long Part2Result { get; set; } = 0;
+
+    private List<List<char>> Grid { get; set; } = new();
+
+    private List<Line> Lines { get; set; } = new();
+
+    private List<string> TestData = new()
+    {
+        "7,1",
+        "11,1",
+        "11,7",
+        "9,7",
+        "9,5",
+        "2,5",
+        "2,3",
+        "7,3",
+    };
 
     protected override Task OnAfterRenderAsync(bool firstRender)
     {
@@ -34,14 +106,527 @@
         return base.OnAfterRenderAsync(firstRender);
     }
 
-    private void SolvePart1()
+    private async Task Test()
     {
+        Console.WriteLine();
+        var points = TestData.Select(x => new V2(x)).ToList();
+        await GenerateGrid(points);
 
+        var rects = GetRectangles(points);
+        var max = rects.MaxBy(x => x.Area);
+        await UpdateGrid(max);
+
+        Console.WriteLine($"Max Rect: {max.Id} Area: {max.Area}");
     }
 
-    private void SolvePart2()
+    private async Task GenerateGrid(List<V2> points)
     {
+        Console.Write($"Generating grid...");
+        var startTime = DateTime.Now;
 
+        var width = (int)points.Max(x => x.X) + 2;
+        var height = (int)points.Max(x => x.Y) + 2;
+
+        Grid = new();
+        for (int i = 0; i < height; i++)
+        {
+            List<char> row = new();
+            for (int j = 0; j < width; j++)
+            {
+                row.Add('.');
+            }
+
+            Grid.Add(row);
+        }
+
+        foreach (var point in points)
+        {
+            Grid[(int)point.Y][(int)point.X] = '#';
+        }
+
+        Console.WriteLine($"  {(DateTime.Now - startTime).TotalSeconds:F4} seconds");
+        await InvokeAsync(StateHasChanged);
+        await Task.Delay(10);
+    }
+
+    private async Task UpdateGrid(Rect rect)
+    {
+        Console.Write($"Updating grid...");
+        var startTime = DateTime.Now;
+
+        var minY = Math.Min(0, (int)rect.MinY);
+        var maxY = Math.Max(Grid.Count - 1, (int)rect.MaxY);
+        var minX = Math.Min(0, (int)rect.MinX);
+        var maxX = Math.Max(Grid[0].Count - 1, (int)rect.MaxX);
+
+        for (var y = minY; y <= maxY; y++)
+        {
+            for (var x = minX; x < maxX; x++)
+            {
+                var p = new V2($"{x},{y}");
+                if (rect.PointInRect(p))
+                {
+                    if (Grid[y][x] == '.')
+                    {
+                        Grid[y][x] = 'O';
+                    }
+                }
+            }
+        }
+
+        Console.WriteLine($"  {(DateTime.Now - startTime).TotalSeconds:F4} seconds");
+
+        await InvokeAsync(StateHasChanged);
+        await Task.Delay(10);
+    }
+
+    private List<Rect> GetRectangles(List<V2> points)
+    {
+        Console.Write($"Getting rects...");
+        var startTime = DateTime.Now;
+
+        var rects = new List<Rect>();
+        for (var i = 0; i < points.Count; i++)
+        {
+            for (var j = i + 1; j < points.Count; j++)
+            {
+                var rect = new Rect(points[i], points[j]);
+                rects.Add(rect);
+            }
+        }
+
+
+        Console.WriteLine($"  {(DateTime.Now - startTime).TotalSeconds:F4} seconds");
+        return rects;
+    }
+
+    private async Task SolvePart1()
+    {
+        Console.WriteLine();
+        var startTime = DateTime.Now;
+
+        Console.Write($"Getting points...");
+        var points = InputLines.Select(x => new V2(x)).ToList();
+        Console.WriteLine($"  {(DateTime.Now - startTime).TotalSeconds:F4} seconds");
+
+        var maxArea = 0L;
+        for (var i = 0; i < points.Count; i++)
+        {
+            for (var j = i + 1; j < points.Count; j++)
+            {
+                var area = GetArea(points[i], points[j]);
+                if (area > maxArea)
+                {
+                    maxArea = area;
+                }
+            }
+        }
+
+        Console.WriteLine($"Part 1 completed in {(DateTime.Now - startTime).TotalSeconds:F4} seconds");
+        Part1Result = maxArea;
+    }
+
+    private async Task SolvePart2()
+    {
+        Console.WriteLine();
+        var startTime = DateTime.Now;
+
+        var redPoints = InputLines.Select(x => new V2(x)).ToHashSet();
+
+        SetLines(redPoints);
+
+        await DrawLines();
+
+        // await GenerateGrid2(redPoints);
+
+        Console.WriteLine($"Part 2 completed in {(DateTime.Now - startTime).TotalSeconds:F4} seconds");
+    }
+
+
+    private async Task Test2()
+    {
+        Console.WriteLine();
+        var startTime = DateTime.Now;
+
+        startTime = DateTime.Now;
+        var redPoints = TestData.Select(x => new V2(x)).ToHashSet();
+        Console.WriteLine($" Loaded points in {(DateTime.Now - startTime).TotalSeconds:F4} seconds");
+
+        startTime = DateTime.Now;
+        SetLines(redPoints);
+        Console.WriteLine($" Set lines in {(DateTime.Now - startTime).TotalSeconds:F4} seconds");
+
+        startTime = DateTime.Now;
+        await DrawLines();
+        Console.WriteLine($" Drew lines in {(DateTime.Now - startTime).TotalSeconds:F4} seconds");
+
+        FindRects(redPoints);
+    }
+
+    private async Task GenerateGrid2(HashSet<V2> redPoints)
+    {
+        var startTime = DateTime.Now;
+        InitGrid2(redPoints);
+
+        SetLines(redPoints);
+
+        await DrawLines();
+
+        Console.WriteLine($"  {(DateTime.Now - startTime).TotalSeconds:F4} seconds");
+        await InvokeAsync(StateHasChanged);
+        await Task.Delay(10);
+    }
+
+    private void InitGrid2(HashSet<V2> redPoints)
+    {
+        Console.WriteLine($"Generating grid...");
+        var startTime = DateTime.Now;
+
+        var width = (int)redPoints.Max(x => x.X) + (int)redPoints.Min(x => x.X) + 1;
+        var height = (int)redPoints.Max(x => x.Y) + (int)redPoints.Min(x => x.Y) + 1;
+
+        // Initialize grid
+        Console.WriteLine($"Initializing grid...");
+        Grid = Enumerable.Range(0, height)
+            .Select(_ => Enumerable.Range(0, width).Select(_ => '.').ToList())
+            .ToList();
+        Console.WriteLine($"Grid set in {(DateTime.Now - startTime).TotalSeconds:F4} seconds");
+
+        // Set red points
+        var pointStartTime = DateTime.Now;
+        Console.WriteLine($"Setting red points...");
+        foreach (var (idx,point) in redPoints.Index())
+        {
+            Grid[(int)point.Y][(int)point.X] = '#';
+        }
+
+        Console.WriteLine($"Points set in {(DateTime.Now - pointStartTime).TotalSeconds:F4} seconds");
+    }
+
+    private void SetLines(HashSet<V2> corners)
+    {
+        Lines = [];
+        Console.WriteLine($"Setting green Lines...");
+        var startTime = DateTime.Now;
+
+        // Get starting red point (top-left most)
+        var startY = corners.Min(x => x.Y);
+        var startX = corners.Where(x => x.Y == startY).Min(x => x.X);
+        var start = corners.FirstOrDefault(x => x.Y == startY && x.X == startX);
+        Console.WriteLine($"Start Red Point: {start.Id}");
+
+        // Get next red point to the right
+        var next = corners.FirstOrDefault(x => x.Y == startY && x.X > startX);
+        Console.WriteLine($"Next Red Point: {next.Id}");
+
+        var current = start;
+        int pointsVisited = 0;
+        while (pointsVisited < corners.Count)
+        {
+            Lines.Add(new Line(current, next));
+            // var minX = (int)Math.Min(current.X, next.X);
+            // var maxX = (int)Math.Max(current.X, next.X);
+            // var minY = (int)Math.Min(current.Y, next.Y);
+            // var maxY = (int)Math.Max(current.Y, next.Y);
+            //
+            // for (int y = minY; y <= maxY; y++)
+            // {
+            //     for (int x = minX; x <= maxX; x++)
+            //     {
+            //         if (Grid[y][x] == '.')
+            //         {
+            //             Grid[y][x] = 'X';
+            //         }
+            //     }
+            // }
+
+            var previous = current;
+            current = next;
+            next = previous.X.Equals(next.X)
+                ? corners.FirstOrDefault(x => x.Y == current.Y && x.X != current.X)
+                : corners.FirstOrDefault(x => x.X == current.X && x.Y != current.Y);
+
+            pointsVisited++;
+        }
+
+        Console.WriteLine($"Points set in {(DateTime.Now - startTime).TotalSeconds:F4} seconds");
+    }
+
+    private void FindRects(HashSet<V2> corners)
+    {
+        Console.WriteLine($"\nFind rectangles seconds...");
+        var startTime = DateTime.Now;
+        var minX = corners.Min(x => x.X);
+        var maxX = corners.Max(x => x.X);
+        var minY = corners.Min(x => x.Y);
+        var maxY = corners.Max(x => x.Y);
+
+        Console.WriteLine($"Bounds: minX={minX}, maxX={maxX}, minY={minY}, maxY={maxY}");
+
+        var leftLineVert = new Line(minX, 0, minX, maxY + 1);
+
+        Console.WriteLine($"Checking for intersections with line {leftLineVert}");
+        var intersections = GetIntersections(leftLineVert, Lines);
+
+        var minYInt = intersections.Min(x => x.Y);
+        var maxYInt = intersections.Max(x => x.Y);
+        var yValues = Enumerable.Range((int)minYInt, (int)(maxYInt - minYInt + 1));
+
+        var gap = 0L;
+        var gapY = 0L;
+        foreach (var y in yValues)
+        {
+            var horzLine = new Line(0, y, maxX + 1, y);
+            var horzIntersections = GetIntersections(horzLine, Lines);
+
+            foreach (var inter in horzIntersections)
+            {
+                Console.WriteLine($"  Found intersection at {inter.Id}");
+            }
+            // if (horzIntersections.Count == 2)
+            // {
+            //     Console.WriteLine($"{horzIntersections[0]}, {horzIntersections[1]} ");
+            //     var thisGap = Math.Abs(horzIntersections[0].X - horzIntersections[1].X);
+            //     if (thisGap > gap)
+            //     {
+            //         gap = thisGap;
+            //         gapY = y;
+            //     }
+            // }
+
+            Console.WriteLine($"Biggest gap at Y={y} is {gap}");
+        }
+
+
+        Console.WriteLine($" Found rectangles in {(DateTime.Now - startTime).TotalSeconds:F4} seconds");
+    }
+
+    private List<V2> GetIntersections(Line line, List<Line> lines) => lines
+            .Select(x => x.Intersects(line))
+            .Where(x => x != null)
+            .ToList();
+
+    private async Task DrawLines()
+    {
+        await JSRuntime.InvokeVoidAsync("drawLines", Lines.Select(l => new
+        {
+            x1 = l.X1,
+            y1 = l.Y1,
+            x2 = l.X2,
+            y2 = l.Y2
+        }).ToList());
+    }
+
+    private async Task DrawRect(Rect rect)
+    {
+        await JSRuntime.InvokeVoidAsync("drawRect", new
+        {
+            minX = rect.MinX,
+            minY = rect.MinY,
+            maxX = rect.MaxX,
+            maxY = rect.MaxY
+        });
+    }
+
+    private async Task DrawRects(List<Rect> rects)
+    {
+        await JSRuntime.InvokeVoidAsync("drawRects", rects.Select(r => new
+        {
+            minX = r.MinX,
+            minY = r.MinY,
+            maxX = r.MaxX,
+            maxY = r.MaxY
+        }).ToList());
+    }
+
+    private string GetClass(char c) => c switch
+    {
+        '#' => "table-danger",
+        'O' => "table-warning",
+        'X' => "table-success",
+        _ => ""
+    };
+
+    private long GetArea(V2 a, V2 b)
+    {
+        var width = Math.Abs(a.X - b.X) + 1;
+        var height = Math.Abs(a.Y - b.Y) + 1;
+        return width * height;
+    }
+
+    private class V2
+    {
+        public V2()
+        {
+            X = 0;
+            Y = 0;
+        }
+
+        public V2(long x, long y)
+        {
+            X = x;
+            Y = y;
+        }
+
+        public V2(string s)
+        {
+            var parts = s.Split(',', StringSplitOptions.TrimEntries);
+            X = long.Parse(parts[0]);
+            Y = long.Parse(parts[1]);
+        }
+
+        public long X { get; set; } = 0;
+        public long Y { get; set; } = 0;
+
+        public string Id => $"({X},{Y})";
+
+        public override string ToString() => Id;
+
+        public bool Equals(V2 other)
+        {
+            return Id == other.Id;
+        }
+    }
+
+    private class Rect
+    {
+        public V2 A { get; set; } = new();
+        public V2 B { get; set; } = new();
+
+        public Rect(V2 a, V2 b)
+        {
+            A = a;
+            B = b;
+        }
+
+        public long Width => Math.Abs(A.X - B.X) + 1;
+        public long Height => Math.Abs(A.Y - B.Y) + 1;
+        public long Area => (Width) * (Height);
+
+        public string Id => $"[{A.Id} => {B.Id}]";
+        public override string ToString() => Id;
+
+        public double MinX => Math.Min(A.X, B.X);
+        public double MaxX => Math.Max(A.X, B.X);
+        public double MinY => Math.Min(A.Y, B.Y);
+        public double MaxY => Math.Max(A.Y, B.Y);
+
+        public bool PointInRect(V2 p)
+        {
+
+            return (MinX <= p.X && p.X <= MaxX) && (MinY <= p.Y && p.Y <= MaxY);
+        }
+    }
+
+    private class Line
+    {
+        public long X1 { get; set; }
+        public long Y1 { get; set; }
+        public long X2 { get; set; }
+        public long Y2 { get; set; }
+
+        public bool GoesRight => X2 > X1;
+        public bool GoesDown => Y2 > Y1;
+        public bool Horizontal => Y2 == Y1;  // Horizontal means Y values are the same
+        public bool Vertical => X2 == X1;    // Vertical means X values are the same
+
+        public Line (long x1, long y1, long x2, long y2)
+        {
+            X1 = x1;
+            Y1 = y1;
+            X2 = x2;
+            Y2 = y2;
+        }
+
+        public Line(V2 v1, V2 v2)
+        {
+            X1 = v1.X;
+            Y1 = v1.Y;
+            X2 = v2.X;
+            Y2 = v2.Y;
+        }
+
+        public double AngleBetween(Line line) => AngleBetween(new V2(X2- X1, Y2 - Y1), new V2(line.X2-line.X1, line.Y2-line.Y1));
+
+        public double GetAngle() => AngleBetween(new Line(0,0,1,0));
+
+        public V2 Intersects(Line line)
+        {
+            V2 intersectionPoint = null;
+
+            // Cast to double for precise calculation
+            double x1 = X1, y1 = Y1, x2 = X2, y2 = Y2;
+            double x3 = line.X1, y3 = line.Y1, x4 = line.X2, y4 = line.Y2;
+
+            // Calculate denominator step by step
+            double dx1 = x2 - x1;
+            double dy1 = y2 - y1;
+            double dx2 = x4 - x3;
+            double dy2 = y4 - y3;
+
+            double denominator = dx1 * dy2 - dy1 * dx2;
+
+            // If the denominator is zero, the lines are parallel or collinear
+            if (Math.Abs(denominator) < 0.0001)
+            {
+                return intersectionPoint;
+            }
+
+            // Calculate t and u step by step
+            // For line 1: P = P1 + t * (P2 - P1)
+            // For line 2: Q = Q1 + u * (Q2 - Q1)
+            // At intersection: P1 + t * d1 = Q1 + u * d2
+            double t_num = (x3 - x1) * dy2 - (y3 - y1) * dx2;
+            double u_num = (x3 - x1) * dy1 - (y3 - y1) * dx1;
+
+            double t = t_num / denominator;
+            double u = u_num / denominator;
+
+            // If 't' and 'u' are between 0 and 1 inclusive, the segments intersect
+            if (t >= 0 && t <= 1 && u >= 0 && u <= 1)
+            {
+                // Calculate the intersection point
+                double ix = x1 + (t * dx1);
+                double iy = y1 + (t * dy1);
+
+                intersectionPoint = new V2((long)ix, (long)iy);
+            }
+
+            return intersectionPoint;
+        }
+
+        public override string ToString() => "("+X1+", "+Y1+"),  ("+X2+", "+Y2+")";
+
+        void SetStart(long newX, long newY)
+        {
+            X1 = newX;
+            Y1 = newY;
+        }
+
+        void SetEnd(long newX, long newY)
+        {
+            X2 = newX;
+            Y2 = newY;
+        }
+
+        V2 GetV2() => new(X2-X1, Y2-Y1);
+
+        private double AngleBetween(V2 v1, V2 v2)
+        {
+            var angle = Math.Atan2(v2.Y, v2.X) - Math.Atan2(v1.Y, v1.X);
+            if (angle < 0)
+            {
+                //angle += 2*PI;
+            }
+            return angle + 2 * Math.PI;
+        }
+
+        public bool WindsCcw(Line next)
+        {
+            V2 v1 = GetV2();
+            V2 v2 = next.GetV2();
+            return (v1.X*v2.Y) - (v1.Y*v2.X) > 0;
+        }
     }
 }
 

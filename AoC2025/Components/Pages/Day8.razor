@@ -8,8 +8,17 @@
     <button class="btn btn-primary" @onclick="SolvePart1">Solve Part 1</button>
     <button class="btn btn-primary" @onclick="SolvePart2">Solve Part 2</button>
     <button class="btn btn-primary" @onclick="Test">Test</button>
+    <button class="btn btn-primary" @onclick="Test2">Test2</button>
+    <button class="btn btn-primary" @onclick="TestEdges">TestEdges</button>
 
-    <p>Part 1: @Part1Result</p>
+    @{
+        var p1Class = Part1Result == 0
+            ? ""
+            : Part1Result == 52668
+                ? "fw-bold text-success"
+                : "fw-bold text-danger";
+    }
+    <p class="@(p1Class)">Part 1: @Part1Result</p>
     <p>Part 2: @Part2Result</p>
 </div>
 
@@ -17,33 +26,6 @@
 @if (Distances.Any())
 {
     <div class="d-flex flex-row  gap-2">
-        @* <div class="d-flex flex-column  gap-2"> *@
-        @*     @foreach (var v1 in Distances.Keys) *@
-        @*     { *@
-        @*         <div class="mb-4 overflow-auto" style="width: 500px;"> *@
-        @*             <table class="table table-sm table-bordered"> *@
-        @*                 <thead> *@
-        @*                 <tr> *@
-        @*                     <th>@v1</th> *@
-        @*                     <th></th> *@
-        @*                     <th>Distance</th> *@
-        @*                 </tr> *@
-        @*                 </thead> *@
-        @*                 <tbody> *@
-        @*                 @foreach (var (i, row) in Distances[v1].Index()) *@
-        @*                 { *@
-        @*                     <tr> *@
-        @*                         <td>@(i + 1)</td> *@
-        @*                         <td>@row.Key</td> *@
-        @*                         <td>@row.Value.ToString("F2")</td> *@
-        @*                     </tr> *@
-        @*                 } *@
-        @*                 </tbody> *@
-        @*             </table> *@
-        @*         </div> *@
-        @*     } *@
-        @* </div> *@
-
         <div class="mb-4 overflow-auto" style="width: 500px;">
             <table class="table table-sm table-bordered">
                 <tbody>
@@ -84,10 +66,10 @@
 
     private List<(string V1, string V2)> Connections { get; set; } = new();
 
-    private InputDisplay InputDisplay { get; set; }
+    private InputDisplay InputDisplay { get; set; } = default!;
 
     private int Part1Result { get; set; } = 0;
-    private int Part2Result { get; set; } = 0;
+    private long Part2Result { get; set; } = 0;
 
     private List<V3> TestData = new()
     {
@@ -129,10 +111,8 @@
         return base.OnAfterRenderAsync(firstRender);
     }
 
-    private async Task Test()
-    {
-        await Connect(TestData, 10);
-    }
+    private async Task Test() => await Connect(TestData, 10);
+    private async Task Test2() => await Connect2(TestData, 10);
 
     private async Task Connect(List<V3> data, int iterations)
     {
@@ -141,7 +121,107 @@
         Distances = new();
         Circuits = new();
 
-        Console.WriteLine("Generating Distances...");
+        Distances = GetDistances(data);
+
+        var edges = GetEdges2(Distances);
+
+        // Create initial circuits from closest edges
+        Circuits = data.Select(x => new HashSet<string> { x.Id }).ToList();
+
+        Console.WriteLine("Connecting edges...");
+        var connectionCount = 0;
+        while (edges.Any() && connectionCount < iterations)
+        {
+            if (edges.Count % 1000 == 0)
+            {
+                Console.WriteLine($"Edges Remaining: {edges.Count}");
+            }
+
+            var min = edges.First();
+
+            if (Circuits.Any(x => x.Contains(min.V1.Id) && x.Contains(min.V2.Id)))
+            {
+                edges.Remove(min);
+                connectionCount++;
+                continue;
+            }
+
+            edges.Remove(min);
+
+            var v1Circuit = Circuits.FirstOrDefault(x => x.Contains(min.V1.Id));
+            var v2Circuit = Circuits.FirstOrDefault(x => x.Contains(min.V2.Id));
+
+            v1Circuit.UnionWith(v2Circuit);
+            Circuits.Remove(v2Circuit);
+
+            connectionCount++;
+        }
+
+        Console.WriteLine($"Edges.Count {edges.Count} | data.Count {data.Count} | Circuits.Count {Circuits.Count}");
+
+        Console.WriteLine($"Program ran in {(DateTime.Now - startTime).TotalSeconds.ToString("F2")} seconds");
+    }
+
+    private async Task<long> Connect2(List<V3> data, int iterations)
+    {
+        var startTime = DateTime.Now;
+
+        Distances = GetDistances(data);
+        var edges = GetEdges2(Distances);
+        Circuits = data.Select(x => new HashSet<string> { x.Id }).ToList();
+
+        Console.WriteLine("Connecting edges...");
+        var connectionCount = 0;
+        var finalEdge = edges.First();
+        while (edges.Any() && connectionCount < iterations && Circuits.Count > 1)
+        {
+            if (edges.Count % 1000 == 0)
+            {
+                Console.WriteLine($"Edges: {edges.Count}");
+            }
+
+            if (Circuits.Count % 10 == 0)
+            {
+                Console.WriteLine($"Circuits: {Circuits.Count}");
+            }
+
+            var min = edges.First();
+
+            if (Circuits.Any(x => x.Contains(min.V1.Id) && x.Contains(min.V2.Id)))
+            {
+                edges.Remove(min);
+                connectionCount++;
+                finalEdge = min;
+                continue;
+            }
+
+            edges.Remove(min);
+            finalEdge = min;
+
+            var v1Circuit = Circuits.FirstOrDefault(x => x.Contains(min.V1.Id));
+            var v2Circuit = Circuits.FirstOrDefault(x => x.Contains(min.V2.Id));
+
+            v1Circuit.UnionWith(v2Circuit);
+            Circuits.Remove(v2Circuit);
+
+            connectionCount++;
+        }
+
+        Console.WriteLine(finalEdge.Id);
+
+
+        Console.WriteLine($"Edges.Count {edges.Count} | data.Count {data.Count} | Circuits.Count {Circuits.Count}");
+
+        Console.WriteLine($"Program ran in {(DateTime.Now - startTime).TotalSeconds.ToString("F2")} seconds");
+
+        return (long)finalEdge.V1.X * (long)finalEdge.V2.X;
+    }
+
+    private Dictionary<string, List<KeyValuePair<string, double>>> GetDistances(List<V3> data)
+    {
+        Console.Write("Generating Distances...");
+        var startTime = DateTime.Now;
+        Dictionary<string, List<KeyValuePair<string, double>>> distances = new();
         foreach (var v1 in data)
         {
             List<KeyValuePair<string, double>> v1Distances = new();
@@ -157,73 +237,58 @@
             }
 
             v1Distances = v1Distances.OrderBy(x => x.Value).ToList();
-            Distances.Add(v1.Id, v1Distances);
+            distances.Add(v1.Id, v1Distances);
         }
 
-        Console.WriteLine("Generating edges...");
-        var edges = Distances
-            .SelectMany(x =>
-            {
-                return x.Value
-                    .Select(y =>
-                    {
-                        var v1 = x.Key;
-                        var v2 = y.Key;
-                        var dist = y.Value;
-                        return (V1: v1, V2: v2, Distance: dist);
-                    });
-            })
+        Console.WriteLine($"  Done in {(DateTime.Now - startTime).TotalSeconds:F4} seconds");
+        return distances;
+    }
+
+    private void TestEdges()
+    {
+        Console.WriteLine();
+        var distances = GetDistances(Coordinates.Values.ToList());
+        var edges = GetEdges(distances);
+        var edges2 = GetEdges2(distances);
+        Console.WriteLine();
+    }
+
+    private List<Edge> GetEdges(Dictionary<string, List<KeyValuePair<string, double>>> distances)
+    {
+        Console.Write("Generating Edges...");
+        var startTime = DateTime.Now;
+
+        var edges = distances
+           .SelectMany(x =>
+           {
+               return x.Value.Select(y => new Edge(x.Key, y.Key));
+           })
+           .OrderBy(x => x.Distance)
+           .DistinctBy(x => x.Id)
+           .ToList();
+
+        Console.WriteLine($"  Done in {(DateTime.Now - startTime).TotalSeconds:F4} seconds");
+        return edges;
+    }
+
+    private List<Edge> GetEdges2(Dictionary<string, List<KeyValuePair<string, double>>> distances)
+    {
+        Console.Write("Generating Edges2...");
+        var startTime = DateTime.Now;
+        List<Edge> edges = [];
+
+        for (var i = 0; i < distances.Count; i++)
+        {
+            var cur = distances.ElementAt(i);
+            edges.AddRange(from n in cur.Value where cur.Key != n.Key select new Edge(cur.Key, n.Key));
+        }
+
+        Console.WriteLine($"  Done in {(DateTime.Now - startTime).TotalSeconds:F4} seconds");
+
+        return edges
+            .DistinctBy(x => x.Id)
             .OrderBy(x => x.Distance)
             .ToList();
-
-        // Create initial circuits from closest edges
-        Circuits = data.Select(x => new HashSet<string> { x.Id }).ToList();
-
-        Console.WriteLine("Connecting edges...");
-        var connectionCount = 0;
-        while (edges.Any() && connectionCount < iterations)
-        {
-            if (edges.Count % 1000 == 0)
-            {
-                Console.WriteLine($"Edges Remaining: {edges.Count}");
-            }
-
-            if (edges.Count <= 5)
-            {
-                Console.WriteLine($"Final two: {edges[0].V1} <-> {edges[0].V2}");
-            }
-
-            var min = edges.First();
-
-            if (Circuits.Any(x => x.Contains(min.V1) && x.Contains(min.V2)))
-            {
-                edges.Remove(min);
-                var inv = edges.FirstOrDefault(x => x.V1 == min.V2 && x.V2 == min.V1);
-                if (inv != default)
-                {
-                    edges.Remove(inv);
-                }
-                connectionCount++;
-                continue;
-            }
-
-            edges.Remove(min);
-            var inverse = edges.FirstOrDefault(x => x.V1 == min.V2 && x.V2 == min.V1);
-            if (inverse != default)
-            {
-                edges.Remove(inverse);
-            }
-
-            var v1Circuit = Circuits.FirstOrDefault(x => x.Contains(min.V1));
-            var v2Circuit = Circuits.FirstOrDefault(x => x.Contains(min.V2));
-
-            v1Circuit.UnionWith(v2Circuit);
-            Circuits.Remove(v2Circuit);
-
-            connectionCount++;
-        }
-
-        Console.WriteLine($"Program ran in {(DateTime.Now - startTime).TotalSeconds.ToString("F2")} seconds");
     }
 
     private async Task SolvePart1()
@@ -235,7 +300,7 @@
 
     private async Task SolvePart2()
     {
-        await Connect(Coordinates.Values.ToList(), int.MaxValue);
+        Part2Result = await Connect2(Coordinates.Values.ToList(), int.MaxValue);
     }
 
     private class V3
@@ -254,7 +319,47 @@
 
         public string Id => $"({X},{Y},{Z})";
 
+        public bool Equals(V3 other)
+        {
+            return Id == other.Id;
+        }
+
         public double Distance(V3 v3) => Math.Sqrt(Math.Pow(v3.X - X, 2) + Math.Pow(v3.Y - Y, 2) + Math.Pow(v3.Z - Z, 2));
+    }
+
+    private class Edge
+    {
+        public Edge(V3 v1, V3 v2)
+        {
+            V1 = v1;
+            V2 = v2;
+        }
+
+        public Edge(string a, string b)
+        {
+            V1 = new V3(a.TrimStart('(').TrimEnd(')'));
+            V2 = new V3(b.TrimStart('(').TrimEnd(')'));
+        }
+
+        public V3 V1 { get; set; }
+        public V3 V2 { get; set; }
+        public double Distance => V1.Distance(V2);
+
+        public string Id
+        {
+            get
+            {
+                var origin = new V3("0, 0, 0");
+                var max = V1.Distance(origin) >= V2.Distance(origin) ? V1.Id : V2.Id;
+                var min = max == V1.Id ? V2.Id : V1.Id;
+                return $"{max}|{min}";
+            }
+        }
+
+        public bool Equals(Edge other)
+        {
+            return (V1.Equals(other.V1) && V2.Equals(other.V2)) || (V1.Equals(other.V2) && V2.Equals(other.V1));
+        }
     }
 }
 

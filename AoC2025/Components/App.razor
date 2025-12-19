@@ -18,6 +18,163 @@
     <Routes @rendermode="InteractiveServer" />
     <ReconnectModal />
     <script src="@Assets["_framework/blazor.web.js"]"></script>
-</body>
+
+    <script>
+        window.drawLines = function(lines) {
+            console.log('Drawing lines...');
+            const canvas = document.getElementById('lineCanvas');
+            if (!canvas) return;
+
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Calculate bounds
+            let minX = Math.min(...lines.map(l => Math.min(l.x1, l.x2)));
+            let maxX = Math.max(...lines.map(l => Math.max(l.x1, l.x2)));
+            let minY = Math.min(...lines.map(l => Math.min(l.y1, l.y2)));
+            let maxY = Math.max(...lines.map(l => Math.max(l.y1, l.y2)));
+
+            // Calculate scale with padding
+            const padding = 20;
+            const rangeX = maxX - minX;
+            const rangeY = maxY - minY;
+
+            // Handle case where all lines are at the same point
+            let scale = 1;
+            if (rangeX > 0 && rangeY > 0) {
+                const scaleX = (canvas.width - 2 * padding) / rangeX;
+                const scaleY = (canvas.height - 2 * padding) / rangeY;
+                scale = Math.min(scaleX, scaleY);
+            }
+
+            console.log('scale:', scale);
+
+            ctx.strokeStyle = '#00ff00';
+            ctx.lineWidth = 2;
+
+            lines.forEach(line => {
+                const x1 = (line.x1 - minX) * scale + padding;
+                const y1 = (line.y1 - minY) * scale + padding;
+                const x2 = (line.x2 - minX) * scale + padding;
+                const y2 = (line.y2 - minY) * scale + padding;
+
+                // Draw the line
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.stroke();
+
+                // Draw text labels with coordinates
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '12px monospace';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+
+                // Draw background rectangles for better readability
+                const text1 = `(${line.x1},${line.y1})`;
+                const text2 = `(${line.x2},${line.y2})`;
+                const metrics1 = ctx.measureText(text1);
+                const metrics2 = ctx.measureText(text2);
+
+                // Background for start point
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(x1 - metrics1.width / 2 - 2, y1 - 8, metrics1.width + 4, 16);
+
+                // Text for start point
+                ctx.fillStyle = '#00ff00';
+                ctx.fillText(text1, x1, y1);
+
+                // Background for end point
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(x2 - metrics2.width / 2 - 2, y2 - 8, metrics2.width + 4, 16);
+
+                // Text for end point
+                ctx.fillStyle = '#00ff00';
+                ctx.fillText(text2, x2, y2);
+            });
+
+            console.log('Lines drawn:', lines.length);
+        };
+
+        window.drawRect = function(rect) {
+            console.log('Drawing rect...');
+            const canvas = document.getElementById('lineCanvas');
+            if (!canvas) return;
+
+            const ctx = canvas.getContext('2d');
+
+            // Calculate scale with padding
+            const padding = 20;
+            const rangeX = rect.maxX - rect.minX;
+            const rangeY = rect.maxY - rect.minY;
+
+            // Handle case where rect has no area
+            let scale = 1;
+            if (rangeX > 0 && rangeY > 0) {
+                const scaleX = (canvas.width - 2 * padding) / rangeX;
+                const scaleY = (canvas.height - 2 * padding) / rangeY;
+                scale = Math.min(scaleX, scaleY);
+            }
+
+            ctx.strokeStyle = '#ff0000';
+            ctx.lineWidth = 2;
+
+            const x = (rect.minX - rect.minX) * scale + padding;
+            const y = (rect.minY - rect.minY) * scale + padding;
+            const width = (rect.maxX - rect.minX) * scale;
+            const height = (rect.maxY - rect.minY) * scale;
+
+            ctx.strokeRect(x, y, width, height);
+
+            console.log('Rect drawn');
+        };
+
+        window.drawRects = function(rects) {
+            console.log('Drawing rects...', rects.length);
+            const canvas = document.getElementById('lineCanvas');
+            if (!canvas) return;
+
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Calculate bounds for all rects
+            let minX = Math.min(...rects.map(r => r.minX));
+            let maxX = Math.max(...rects.map(r => r.maxX));
+            let minY = Math.min(...rects.map(r => r.minY));
+            let maxY = Math.max(...rects.map(r => r.maxY));
+
+            // Calculate scale with padding
+            const padding = 20;
+            const rangeX = maxX - minX;
+            const rangeY = maxY - minY;
+
+            // Handle case where all rects are at the same point
+            let scale = 1;
+            if (rangeX > 0 && rangeY > 0) {
+                const scaleX = (canvas.width - 2 * padding) / rangeX;
+                const scaleY = (canvas.height - 2 * padding) / rangeY;
+                scale = Math.min(scaleX, scaleY);
+            }
+
+            console.log('scale:', scale);
+
+            ctx.strokeStyle = '#0000ff';
+            ctx.lineWidth = 2;
+
+            rects.forEach(rect => {
+                const x = (rect.minX - minX) * scale + padding;
+                const y = (rect.minY - minY) * scale + padding;
+                const width = (rect.maxX - rect.minX) * scale;
+                const height = (rect.maxY - rect.minY) * scale;
+
+                ctx.strokeRect(x, y, width, height);
+            });
+
+            console.log('Rects drawn:', rects.length);
+        };
+
+
+    </script>
+    </body>
 
 </html>
