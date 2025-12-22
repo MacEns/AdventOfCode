@@ -117,7 +117,7 @@
         return devices.Select(x => GetOutCount(x.Value)).Sum();
     }
 
-    private void SolvePart2()
+    private async Task SolvePart2()
     {
         Devices = InputLines
             .Select(x => new Device(x))
@@ -126,38 +126,178 @@
             .ThenBy(x => !x.IsFft)
             .ThenBy(x => !x.IsOut)
             .ToDictionary(x => x.Name);
-        var device = Devices["svr"];
 
-
-        Console.WriteLine($"Finding paths...");
-        var paths = GetPaths([device]);
-        Part2Result = paths.Count;
-    }
-
-    private async Task Test2()
-    {
-        Devices = TestData2.Select(x => new Device(x)).ToDictionary(x => x.Name);
-        var device = Devices["svr"];
+        var devices = Devices.ToDictionary(x => x.Key, x => x.Value.Outputs);
+        var device = devices["svr"];
 
         await InvokeAsync(StateHasChanged);
         await Task.Delay(100);
 
-        var outDevices = Devices.Where(d => d.Value.IsOut).ToList();
-        Console.WriteLine($"Found {outDevices.Count} out devices");
 
-        // var paths = GetOutPaths([device]);
-        // Console.WriteLine($"Found {paths.Count} output paths");
-        //
-        // var dacPaths = paths.Where(x => x.Any(y => y.IsDac) && x.Any(y => y.IsFft)).ToList();
-        // Console.WriteLine($"Found {dacPaths.Count} DAC paths");
-        //
-        // var fftPaths = paths.Where(x => x.Any(y => y.IsFft)).ToList();
-        // Console.WriteLine($"Found {fftPaths.Count} FFT paths");
-        //
-        // var validPaths = dacPaths.Intersect(fftPaths).ToList();
-        // Console.WriteLine($"Found {validPaths.Count} valid paths");
+        Console.WriteLine($"Finding paths...");
+        var paths = FindPaths(["svr"], devices);
+        Part2Result = paths.Count;
+    }
+
+    private List<List<string>> FindPaths(List<string> path, Dictionary<string, List<string>> devices)
+    {
+        var device = path.Last();
+        if (devices[device].Contains("out") && path.Contains("dac") && path.Contains("fft"))
+        {
+            Console.WriteLine("  ****   " + PrintPath(path));
+            return [path];
+        }
+        else if (devices[device].Contains("out"))
+        {
+            if (path.Contains("dac") && path.Contains("fft"))
+            {
+                Console.WriteLine(PrintPath(path));
+            }
+
+            return [];
+        }
+
+
+        var nextDevices = devices[device].ToList();
+
+        List<List<string>> paths = [];
+        foreach (var d in nextDevices)
+        {
+            var nextPaths = FindPaths(path.Append(d).ToList(), devices);
+            foreach (var p in nextPaths)
+            {
+                if (!paths.All(x => ContainsSequence(x, p.TakeLast(3))))
+                {
+                    paths.Add(p);
+                }
+            }
+        }
+
+        return paths
+            .DistinctBy(x => string.Join(",",x))
+            .Where(x => x.Any())
+            .ToList();
+    }
+
+    public bool ContainsSequence(IEnumerable<string> source, IEnumerable<string> sequence)
+    {
+        if (source == null || sequence == null) return false;
+        var sourceList = source.ToList();
+        var sequenceList = sequence.ToList();
+
+        if (sequenceList.Count == 0) return true; // An empty sequence is always found
+        if (sourceList.Count < sequenceList.Count) return false;
+
+        // Iterate through all possible starting indices in the source list
+        return Enumerable.Range(0, sourceList.Count - sequenceList.Count + 1)
+            .Any(startIndex => sourceList.Skip(startIndex).Take(sequenceList.Count).SequenceEqual(sequenceList));
+    }
+
+    private async Task Test2()
+    {
+        Devices = InputLines.Select(x => new Device(x)).ToDictionary(x => x.Name);
+        await InvokeAsync(StateHasChanged);
+        await Task.Delay(100);
+
+        var nodes = InputLines
+            .Select(x => new Node(x))
+            .Append(new Node("out:"))
+            .ToDictionary(x => x.Name);
+        foreach (var node in nodes.Values)
+        {
+            node.Children = node.OutputStrings
+                .Select(x => nodes.TryGetValue(x, out var y) ? y : null)
+                .Where(x => x != null)
+                .ToList();
+        }
+
+        var startNode = nodes["svr"];
+
+        Console.WriteLine($"Finding paths 'svr' to 'fft'...");
+        var svrFftPaths = FindAllPaths(startNode, "fft");
+        Console.WriteLine($"Found {svrFftPaths.Count} svr -> fft paths.");
+        if (svrFftPaths.Any(x => x.Contains("dac")))
+        {
+            Console.WriteLine("svr -> fft paths contain dac");
+        }
+
+
+        Console.WriteLine($"Finding paths 'svr' to 'dac'...");
+        var svrDacPaths = FindAllPaths(startNode, "dac");
+        Console.WriteLine($"Found {svrDacPaths.Count} svr -> dac paths.");
+        if (svrDacPaths.Any(x => x.Contains("fft")))
+        {
+            Console.WriteLine("svr -> dac paths contain fft");
+        }
+
 
     }
+
+    // The main function to initiate the path finding
+    private List<List<string>> FindAllPaths(Node root, string endNodeName = "out")
+    {
+        List<List<string>> paths = new List<List<string>>();
+        if (root == null)
+        {
+            return paths;
+        }
+
+        List<string> currentPath = new List<string>();
+        // Call the recursive helper function
+        CollectPathsRecursive(root, currentPath, paths, endNodeName);
+        return paths;
+    }
+
+    // A recursive helper function to perform DFS
+    private void CollectPathsRecursive(Node node, List<string> currentPath, List<List<string>> allPaths, string endNodeName)
+    {
+        // Add the current node's data to the path
+        currentPath.Add(node.Name);
+
+        // Check if we've reached the end node
+        if (node.Name == endNodeName)
+        {
+            // Check if path contains both dac and fft before adding
+            if (currentPath.Contains("dac") && currentPath.Contains("fft"))
+            {
+                Console.WriteLine(PrintPath(currentPath));
+                allPaths.Add(new List<string>(currentPath)); // Add a copy of the path
+            }
+            // Backtrack and return
+            currentPath.RemoveAt(currentPath.Count - 1);
+            return;
+        }
+
+        // If it's a leaf node (no children), add the current path to the results
+        if (node.Children.Count == 0)
+        {
+            allPaths.Add(new List<string>(currentPath)); // Add a copy of the path
+        }
+        else
+        {
+            // Otherwise, recurse for all children
+            foreach (var child in node.Children)
+            {
+                if (child.Name == endNodeName)
+                {
+                    // Check if path contains both dac and fft
+                    if (currentPath.Contains("dac") && currentPath.Contains("fft"))
+                    {
+                        var pathWithEnd = new List<string>(currentPath) { endNodeName };
+                        Console.WriteLine(PrintPath(pathWithEnd));
+                        allPaths.Add(pathWithEnd);
+                    }
+                }
+
+                CollectPathsRecursive(child, currentPath, allPaths, endNodeName);
+            }
+        }
+
+        // Backtrack: remove the current node's data as we move back up the tree
+        currentPath.RemoveAt(currentPath.Count - 1);
+    }
+
+
 
     private List<List<Device>> GetOutPaths(List<Device> path)
     {
@@ -206,6 +346,8 @@
     }
 
     private string PrintPath(List<Device> path) => string.Join(" -> ", path.Select(x => x.Name));
+    private string PrintPath(List<string> path) => string.Join(" -> ", path);
+    private string PrintPath(Stack<Node> path) => string.Join(" -> ", path.Select(x => x.Name));
 
     private class Device
     {
@@ -224,6 +366,21 @@
         public bool IsOut => OutputString == "out";
         public bool IsDac => Name == "dac";
         public bool IsFft => Name == "fft";
+    }
+
+    private class Node
+    {
+        public string Name { get; set; } = "";
+        public List<string> OutputStrings { get; set; } = [];
+        public List<Node> Children { get; set; } = [];
+
+        public Node(string row)
+        {
+            var chunks = row.Split(':');
+            Name = chunks[0].Trim();
+            OutputStrings = chunks[1].Trim().Split(' ').Select(o => o.Trim()).ToList();
+        }
+
     }
 }
 

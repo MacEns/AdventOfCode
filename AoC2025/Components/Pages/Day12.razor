@@ -7,11 +7,86 @@
 <div class="d-flex flex-row gap-2 mb-2">
     <button class="btn btn-primary" @onclick="SolvePart1">Solve Part 1</button>
     <button class="btn btn-primary" @onclick="SolvePart2">Solve Part 2</button>
+    <button class="btn btn-primary" @onclick="Test">Test</button>
+    <button class="btn btn-primary" @onclick="Test2">Test2</button>
 
     <p>Part 1: @Part1Result</p>
     <p>Part 2: @Part2Result</p>
 </div>
 
+<div class="d-flex flex-row gap-3">
+@if (Presents.Any())
+{
+    <div class="mb-4 overflow-auto" style="width: 300px;">
+        @foreach (var p in Presents)
+        {
+            <h5 class="my-0">@p.Index</h5>
+            <table class="table table-sm table-bordered">
+                <tbody>
+                @foreach (var pr in p.Shape)
+                {
+                    <tr >
+                    @foreach (var c in pr)
+                    {
+                        <td class="text-center">@(c)</td>
+                    }
+                    </tr>
+                }
+                </tbody>
+            </table>
+        }
+    </div>
+}
+
+@if (Regions.Any())
+{
+    <div class="mb-4 overflow-auto" style="width: 600px;">
+        <table class="table table-sm table-bordered">
+            <thead>
+            <tr>
+                <th>Width</th>
+                <th>Height</th>
+                @for (int i = 0; i < Presents.Count; i++)
+                {
+                    <th> @(i)</th>
+                }
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var pr in Regions)
+            {
+                <tr >
+                    <td class="text-center">@(pr.Width)</td>
+                    <td class="text-center">@(pr.Height)</td>
+                    @foreach (var q in pr.Quantities)
+                    {
+                        <td class="text-center">@(q)</td>
+                    }
+                </tr>
+            }
+            </tbody>
+        </table>
+
+
+        @foreach (var region in Regions)
+        {
+            <table class="table table-sm table-bordered">
+                <tbody>
+                @foreach (var row in region.Grid)
+                {
+                    <tr >
+                        @foreach (var c in row)
+                        {
+                            <td class="text-center">@(c)</td>
+                        }
+                    </tr>
+                }
+                </tbody>
+            </table>
+        }
+    </div>
+}
+</div>
 @code {
     [CascadingParameter]
     public Services.InputFileLoader InputFileLoader { get; set; } = default!;
@@ -20,8 +95,48 @@
 
     private InputDisplay InputDisplay { get; set; } = default!;
 
-    private int Part1Result { get; set; } = 0;
-    private int Part2Result { get; set; } = 0;
+    private long Part1Result { get; set; } = 0;
+    private long Part2Result { get; set; } = 0;
+
+    private List<Present> Presents = new();
+    private List<Region> Regions = new();
+
+    private List<string> TestData = new()
+    {
+        "0:",
+        "###",
+        "##.",
+        "##.",
+        "",
+        "1:",
+        "###",
+        "##.",
+        ".##",
+        "",
+        "2:",
+        ".##",
+        "###",
+        "##.",
+        "",
+        "3:",
+        "##.",
+        "###",
+        "##.",
+        "",
+        "4:",
+        "###",
+        "#..",
+        "###",
+        "",
+        "5:",
+        "###",
+        ".#.",
+        "###",
+        "",
+        "4x4: 0 0 0 0 2 0",
+        "12x5: 1 0 1 0 2 2",
+        "12x5: 1 0 1 0 3 2",
+    };
 
     protected override Task OnAfterRenderAsync(bool firstRender)
     {
@@ -36,12 +151,111 @@
 
     private void SolvePart1()
     {
-
     }
 
     private void SolvePart2()
     {
 
+    }
+
+    private void Test()
+    {
+        List<string> current = new();
+        foreach (var line in TestData.Where(x => !x.Contains('x')))
+        {
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                if (current.Count > 0)
+                {
+                    Presents.Add(new Present(current));
+                    current.Clear();
+                }
+            }
+            else
+            {
+                current.Add(line);
+            }
+        }
+
+        Regions = TestData.Where(x => x.Contains('x')).Select(line => new Region(line)).ToList();
+
+        var result = Regions.Select(SolveRegion).Count(x => x);
+        Console.WriteLine($"Valid regions: {result}");
+
+    }
+
+    private bool SolveRegion(Region region)
+    {
+        var result = false;
+
+        var totalTiles = region.Width * region.Height;
+
+        var presentsRequired = region.Quantities
+            .SelectMany((x, i) => Enumerable.Range(0, x).Select(y => Presents[i]))
+            .ToList();
+
+        if (presentsRequired.Sum(x => x.TilesUsed) > totalTiles)
+        {
+            return false;
+        }
+
+        region.Grid = Enumerable.Range(0, region.Height)
+            .Select(x => Enumerable.Range(0, region.Width).Select(x => '.').ToList())
+            .ToList();
+
+        foreach (var p in presentsRequired)
+        {
+            // Try to place present p in region.Grid
+        }
+
+        result = true;
+
+        return result;
+    }
+
+    private void Test2()
+    {
+
+    }
+
+    private class Present
+    {
+        public int Index { get; set; }
+        public List<List<char>> Shape { get; set; } = new();
+
+        public int TilesUsed => Shape.Sum(x => x.Count(y => y == '#'));
+
+        public Present(List<string> input)
+        {
+            Index = int.Parse(input[0].Trim().TrimEnd(':'));
+
+            foreach (var line in input.Skip(1))
+            {
+                Shape.Add(line.ToCharArray().ToList());
+            }
+        }
+    }
+
+    private class Region
+    {
+        public int Width { get; set; }
+        public int Height { get; set; }
+        public List<int> Quantities { get; set; } = new();
+
+        public List<List<char>> Grid { get; set; } = [];
+
+        public Region(string input)
+        {
+            var chunks = input.Split(' ');
+
+            var sizeChunks = chunks[0].Trim().TrimEnd(':').Split('x');
+            Width = int.Parse(sizeChunks[0]);
+            Height = int.Parse(sizeChunks[1]);
+            for (int i = 1; i < chunks.Length; i++)
+            {
+                Quantities.Add(int.Parse(chunks[i]));
+            }
+        }
     }
 }
 
