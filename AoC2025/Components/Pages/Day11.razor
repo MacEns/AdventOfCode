@@ -7,21 +7,73 @@
 <div class="d-flex flex-row gap-2 mb-2">
     <button class="btn btn-primary" @onclick="SolvePart1">Solve Part 1</button>
     <button class="btn btn-primary" @onclick="SolvePart2">Solve Part 2</button>
+    <button class="btn btn-primary" @onclick="Test">Test</button>
+    <button class="btn btn-primary" @onclick="Test2">Test2</button>
 
     <p>Part 1: @Part1Result</p>
     <p>Part 2: @Part2Result</p>
 </div>
+
+@if (Devices.Any())
+{
+    <div class="mb-4 overflow-auto" style="width: 1000px;">
+        <table class="table table-sm table-bordered">
+            <tbody>
+            @foreach (var (y, device) in Devices.Index())
+            {
+                <tr class="@(device.Value.IsDac ? "table-warning" : device.Value.IsFft ? "table-info" : "")">
+                    <td>@(y)</td>
+                    <td>@device.Key</td>
+                    <td>@device.Value.OutputString</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
 
 @code {
     [CascadingParameter]
     public Services.InputFileLoader InputFileLoader { get; set; } = default!;
 
     private List<string> InputLines { get; set; } = new();
+    private Dictionary<string, Device> Devices { get; set; } = new();
 
     private InputDisplay InputDisplay { get; set; } = default!;
 
-    private int Part1Result { get; set; } = 0;
-    private int Part2Result { get; set; } = 0;
+    private long Part1Result { get; set; } = 0;
+    private long Part2Result { get; set; } = 0;
+
+    private List<string> TestData = new()
+    {
+        "aaa: you hhh",
+        "you: bbb ccc",
+        "bbb: ddd eee",
+        "ccc: ddd eee fff",
+        "ddd: ggg",
+        "eee: out",
+        "fff: out",
+        "ggg: out",
+        "hhh: ccc fff iii",
+        "iii: out",
+    };
+
+    private List<string> TestData2 = new()
+    {
+        "svr: aaa bbb",
+        "aaa: fft",
+        "fft: ccc",
+        "bbb: tty",
+        "tty: ccc",
+        "ccc: ddd eee",
+        "ddd: hub",
+        "hub: fff",
+        "eee: dac",
+        "dac: fff",
+        "fff: ggg hhh",
+        "ggg: out",
+        "hhh: out",
+    };
 
     protected override Task OnAfterRenderAsync(bool firstRender)
     {
@@ -36,12 +88,142 @@
 
     private void SolvePart1()
     {
+        Devices = InputLines.Select(x => new Device(x)).ToDictionary(x => x.Name);
+        var device = Devices["you"];
 
+        Part1Result = GetOutCount(device);
+    }
+
+    private void Test()
+    {
+        Devices = TestData.Select(x => new Device(x)).ToDictionary(x => x.Name);
+
+        var result = 0;
+        var device = Devices["you"];
+
+        result = GetOutCount(device);
+
+        Console.WriteLine($"Result: {result}");
+    }
+
+    private int GetOutCount(Device device)
+    {
+        if (device.IsOut)
+        {
+            return 1;
+        }
+
+        var devices = Devices.Where(d => device.Outputs.Contains(d.Key)).ToList();
+        return devices.Select(x => GetOutCount(x.Value)).Sum();
     }
 
     private void SolvePart2()
     {
+        Devices = InputLines
+            .Select(x => new Device(x))
+            .OrderBy(x => x.Name != "svr")
+            .ThenBy(x => !x.IsDac)
+            .ThenBy(x => !x.IsFft)
+            .ThenBy(x => !x.IsOut)
+            .ToDictionary(x => x.Name);
+        var device = Devices["svr"];
 
+
+        Console.WriteLine($"Finding paths...");
+        var paths = GetPaths([device]);
+        Part2Result = paths.Count;
+    }
+
+    private async Task Test2()
+    {
+        Devices = TestData2.Select(x => new Device(x)).ToDictionary(x => x.Name);
+        var device = Devices["svr"];
+
+        await InvokeAsync(StateHasChanged);
+        await Task.Delay(100);
+
+        var outDevices = Devices.Where(d => d.Value.IsOut).ToList();
+        Console.WriteLine($"Found {outDevices.Count} out devices");
+
+        // var paths = GetOutPaths([device]);
+        // Console.WriteLine($"Found {paths.Count} output paths");
+        //
+        // var dacPaths = paths.Where(x => x.Any(y => y.IsDac) && x.Any(y => y.IsFft)).ToList();
+        // Console.WriteLine($"Found {dacPaths.Count} DAC paths");
+        //
+        // var fftPaths = paths.Where(x => x.Any(y => y.IsFft)).ToList();
+        // Console.WriteLine($"Found {fftPaths.Count} FFT paths");
+        //
+        // var validPaths = dacPaths.Intersect(fftPaths).ToList();
+        // Console.WriteLine($"Found {validPaths.Count} valid paths");
+
+    }
+
+    private List<List<Device>> GetOutPaths(List<Device> path)
+    {
+        var device = path.Last();
+        if (device.IsOut)
+        {
+            return [path];
+        }
+
+        // Console.WriteLine(PrintPath(path));
+
+        var devices = Devices
+            .Where(d => device.Outputs.Contains(d.Key))
+            .ToList();
+
+        return devices
+            .SelectMany(x => GetOutPaths(path.Append(x.Value).ToList()))
+            .ToList();
+    }
+
+    private List<List<Device>> GetPaths(List<Device> path)
+    {
+        var device = path.Last();
+        if (device.IsOut && path.Any(x => x.IsDac) && path.Any(x => x.IsFft))
+        {
+            return [path];
+        }
+        else if (device.IsOut)
+        {
+            return [];
+        }
+
+        // Console.WriteLine(PrintPath(path));
+
+        var devices = Devices
+            .Where(d => device.Outputs.Contains(d.Key))
+            .ToList();
+
+        List<List<Device>> paths = [];
+        foreach (var d in devices)
+        {
+            paths.AddRange(GetPaths(path.Append(d.Value).ToList()));
+        }
+
+        return paths;
+    }
+
+    private string PrintPath(List<Device> path) => string.Join(" -> ", path.Select(x => x.Name));
+
+    private class Device
+    {
+        public Device(string row)
+        {
+            var chunks = row.Split(':');
+            Name = chunks[0].Trim();
+            Outputs = chunks[1].Trim().Split(' ').Select(o => o.Trim()).ToList();
+        }
+
+        public string Name { get; set; }
+        public List<string> Outputs { get; set; } = [];
+
+        public string OutputString => string.Join(", ", Outputs);
+
+        public bool IsOut => OutputString == "out";
+        public bool IsDac => Name == "dac";
+        public bool IsFft => Name == "fft";
     }
 }
 
